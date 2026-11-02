@@ -94,6 +94,7 @@ r = call('B', "select pass_claim(1, 'p', 1000)"); ok('pass owner claims premium 
 r = call('B', "select pass_claim(2, 'p', 2000)"); ok('premium tier 2: 50 stardust', isinstance(r, dict) and r['sd'] >= 50, r)
 r = call('B', "select pass_claim(5, 'p', 5000)"); ok('premium tier 5: the Jingle Bell Blaster', isinstance(r, dict) and 'w|blaster|6012' in r['owned'], r)
 sql_("update public.premium set passes = passes where true")
+r = call('A', "select pass_claim(1, 'b', 32000)"); ok('bonus stars need the pass', str(r).startswith('ERR') and 'PASS' in r, r)
 r = call('B', "select pass_claim(1, 'b', 31000)"); ok('bonus stars need 32,000 xp', str(r).startswith('ERR'), r)
 r = call('B', "select pass_claim(1, 'b', 32000)"); ok('bonus star 1: +25 stardust', isinstance(r, dict) and 1 in r['claims']['frostfall']['b'], r)
 r = call('B', "select pass_claim(41, 'b', 99000)"); ok('only 40 bonus stars', str(r).startswith('ERR'), r)

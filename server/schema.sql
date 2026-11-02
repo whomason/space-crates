@@ -1634,7 +1634,8 @@ begin
   p_xp := least(coalesce(p_xp, 0), (hrs * 5000 + 15000)::int);
   if p_xp < need then raise exception 'EARN MORE PASS XP FIRST'; end if;
   p := sc_private.prem(uid);
-  if tr = 'p' and not (sid = any(p.passes)) then raise exception 'GET THE PASS TO CLAIM THIS'; end if;
+  -- the paid track and the bonus stars after tier 30 are for pass owners
+  if tr in ('p', 'b') and not (sid = any(p.passes)) then raise exception 'GET THE PASS TO CLAIM THIS'; end if;
   c := coalesce(p.claims -> sid, '{}'::jsonb);
   if coalesce(c -> tr, '[]'::jsonb) @> to_jsonb(p_tier) then raise exception 'ALREADY CLAIMED'; end if;
   c := jsonb_set(c, array[tr], coalesce(c -> tr, '[]'::jsonb) || to_jsonb(p_tier));

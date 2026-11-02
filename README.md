@@ -53,7 +53,7 @@ Money goes through Stripe. Prices live in the database and in `server/functions/
 
 Never put either Stripe key in this repo. Until the secrets are set, the store says "payments are not set up yet".
 
-- Stardust packs, the FROSTFALL pass (ends January 1) and the supporter plate are the things money buys. Stardust buys shop cosmetics, coin packs, the pass and the plate.
+- Stardust packs, the FROSTFALL pass (ends January 1) and the supporter plate are the things money buys. Bonus stars after tier 30 (25 Stardust each) are for pass owners. Stardust buys shop cosmetics, coin packs, the pass and the plate.
 - Store, pass and streak cosmetics can never be traded, listed, sold or fused. A save edited to add them has them removed by the server.
 - The moderator STATS tab shows players per day, how many come back, the new-player funnel, money, bug reports and crashes.
 

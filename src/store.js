@@ -112,7 +112,7 @@ function passXP(n, why) {
   if (typeof RUN !== 'undefined' && RUN && RUN.boost && RUN.boost.xp) n *= 2;
   const p = passState(), t0 = passTier(), b0 = passBonus(); p.xp = Math.min(PASS.tiers * PASS.xp + PASS.bonusMax * PASS.bonusXp, p.xp + Math.round(n)); dirty();
   const t1 = passTier(); if (t1 > t0) { toast(`${PASS.name} PASS: TIER ${t1} REACHED! CLAIM IT IN THE STORE`, '#9fe7ff'); SND.play('unlock'); STORE.badge = true; }
-  else if (passBonus() > b0) { toast(`${PASS.name}: BONUS STAR! +${PASS.bonusSd} STARDUST TO CLAIM`, '#c9a6ff'); SND.play('unlock'); STORE.badge = true; }
+  else if (passBonus() > b0) { if (ownsPass()) { toast(`${PASS.name}: BONUS STAR! +${PASS.bonusSd} STARDUST TO CLAIM`, '#c9a6ff'); STORE.badge = true; } else toast(`${PASS.name}: BONUS STAR EARNED. GET THE PASS TO CLAIM ITS ${PASS.bonusSd} STARDUST`, '#c9a6ff'); SND.play('unlock'); }
 }
 
 // ---------- weekly pass missions: three goals a week, each worth a lot of pass XP ----------
@@ -281,13 +281,13 @@ function drawStoreButton(x, y) {
 function storeClaimable() {
   if (!STORE.p || Date.now() > PASS.ends + 7 * 864e5) return 0; const t = passTier(), f = claimedSet('f'), p = claimedSet('p'), b = claimedSet('b'); let n = 0;
   for (let i = 1; i <= t; i++) { if (!f.has(i)) n++; if (ownsPass() && !p.has(i)) n++; }
-  for (let i = 1; i <= passBonus(); i++) if (!b.has(i)) n++;
+  if (ownsPass()) for (let i = 1; i <= passBonus(); i++) if (!b.has(i)) n++;   // bonus stars after tier 30 are for pass owners
   return n;
 }
 function claimAll() {
   const t = passTier(), f = claimedSet('f'), pp = claimedSet('p'), bb = claimedSet('b'), todo = [];
   for (let i = 1; i <= t; i++) { if (!f.has(i)) todo.push([i, 'f']); if (ownsPass() && !pp.has(i)) todo.push([i, 'p']); }
-  for (let i = 1; i <= passBonus(); i++) if (!bb.has(i)) todo.push([i, 'b']);
+  if (ownsPass()) for (let i = 1; i <= passBonus(); i++) if (!bb.has(i)) todo.push([i, 'b']);
   if (!todo.length) return;
   netDo(async () => { let r = null; for (const [i, tr] of todo) r = await rpc('pass_claim', { p_tier: i, p_track: tr, p_xp: passState().xp }); STORE.p = r; NET.mail = Math.max(NET.mail, 1); SND.play('fanfare'); STORE.flash = 1; return r; }, `CLAIMED ${todo.length} REWARD${todo.length > 1 ? 'S' : ''}. ITEMS, COINS AND CRATES ARE IN YOUR MAILBOX`);
 }
@@ -379,12 +379,12 @@ function storePass(st) {
   else { text('NEXT TIER', bx + 22, by - 10, '#9fe7ff', FS); text(`${fmt(into)} / ${fmt(PASS.xp)}`, bx + 22, by - 1, '#ffffff', FS); text('PLAY TO EARN XP', bx + 22, by + 8, '#8aa8c8', FS); }
   // the track
   const tx = 156, ty = 49, tw = W - 12 - tx, cw2 = 38, gap = 4, cols = PASS.tiers + 1, TH = 106, step = cw2 + gap;
-  const maxS = Math.max(0, cols * step - tw + 26);
+  const maxS = Math.max(0, 4 + (cols - 1) * step + cw2 + 20 + 3 - (tw - 27));   // room for the wider bonus column at the end (it used to be cut off)
   // scrolling: the wheel anywhere over the pass, arrow keys, drag, the arrows and bar under the track, or NOW. It glides to where you aim
   const firstReady = () => { const f0 = claimedSet('f'), p0 = claimedSet('p'); for (let i = 1; i <= tier; i++) if (!f0.has(i) || (owns && !p0.has(i))) return i; return 0; };
   const aimAt = n => clamp((Math.max(1, n) - 3) * step, 0, maxS);
   if (st.pScroll === undefined) { st.pScroll = aimAt(firstReady() || tier); st.pTo = st.pScroll; }
-  if (st.pTo === undefined) st.pTo = st.pScroll;
+  if (st.pTo === undefined) st.pTo = st.pScroll; st.pTo = clamp(st.pTo, 0, maxS);
   if (inBox(tx, ty, tw, TH + 48) && IN.wheel) st.pTo = clamp(st.pTo + IN.wheel * step * 2, 0, maxS);
   if (kp('ArrowRight') || kp('KeyD')) st.pTo = clamp(st.pTo + step * 4, 0, maxS); if (kp('ArrowLeft') || kp('KeyA')) st.pTo = clamp(st.pTo - step * 4, 0, maxS);
   if (IN.down && inBox(tx, ty, tw, 94) && st.pDrag === undefined) st.pDrag = 'track';
@@ -408,7 +408,8 @@ function storePass(st) {
       gbox(x, ty + 18, cw2 + 20, 73, '#2a1a5a', '#140c30', '#c9a6ff'); text('BONUS', x + (cw2 + 20) / 2, ty + 4, '#c9a6ff', FS, 1);
       drawStardustIcon(x + (cw2 + 20) / 2 - 7, ty + 28, 2); text(`+${PASS.bonusSd} EACH`, x + (cw2 + 20) / 2, ty + 47, '#e6d6ff', FS, 1);
       text(`EVERY ${fmt(PASS.bonusXp)} XP`, x + (cw2 + 20) / 2, ty + 56, '#8a80b8', FS, 1); text(`${passBonus()}/${PASS.bonusMax}`, x + (cw2 + 20) / 2, ty + 68, '#ffffff', FB, 1);
-      if (ready > 0) text(`${ready} READY`, x + (cw2 + 20) / 2, ty + 80, COL.gold, FS, 1);
+      if (!owns) { const lb = passBonus() > 0 ? `${passBonus()} LOCKED` : '', lw = lb ? textW(lb, FS) + 10 : 7, lx = Math.round(x + (cw2 + 20) / 2 - lw / 2); rect(lx, ty + 81, 7, 5, '#8a80b8'); ring(lx + 3, ty + 80, 2, '#8a80b8'); if (lb) text(lb, lx + 10, ty + 80, '#c9a6ff', FS); }
+      else if (ready > 0) text(`${ready} READY`, x + (cw2 + 20) / 2, ty + 80, COL.gold, FS, 1);
       if (inBox(x, ty + 18, cw2 + 20, 73)) hover = { bonus: true };
       continue;
     }
@@ -448,7 +449,7 @@ function storePass(st) {
   }
   // details of whatever you point at
   const dy = ty + TH + 4; gbox(tx, dy, tw, 44, '#161236', '#0c0a20', '#3a2f66');
-  if (hover && hover.bonus) { drawStardustIcon(tx + 10, dy + 15, 2); text('BONUS STARS', tx + 34, dy + 7, '#c9a6ff', FB); text(`AFTER TIER 30, EVERY ${fmt(PASS.bonusXp)} XP GIVES ${PASS.bonusSd} STARDUST. UP TO ${PASS.bonusMax}`, tx + 34, dy + 19, '#bfb6e6', FS); text('ON BOTH THE FREE AND PAID PASS', tx + 34, dy + 28, '#8a80b8', FS); }
+  if (hover && hover.bonus) { drawStardustIcon(tx + 10, dy + 15, 2); text('BONUS STARS', tx + 34, dy + 7, '#c9a6ff', FB); text(`AFTER TIER 30, EVERY ${fmt(PASS.bonusXp)} XP GIVES ${PASS.bonusSd} STARDUST. UP TO ${PASS.bonusMax}`, tx + 34, dy + 19, '#bfb6e6', FS); text(owns ? 'YOU OWN THE PASS, SO THEY ARE YOURS TO CLAIM' : 'PASS OWNERS ONLY. YOU EARN THEM EITHER WAY', tx + 34, dy + 28, owns ? '#7dffb0' : '#ffd166', FS); }
   else if (hover) {
     const rw = hover.rw, d = rw.it ? getDef(rw.it) : null;
     if (d) { drawItemIn(rw.it, tx + 4, dy + 4, 54, 36, { maxSc: 3 }); TIP.v = null; } else drawReward(rw, tx + 8, dy + 4, 44, 36);
@@ -474,7 +475,7 @@ function storePass(st) {
   const cy = dy + 48;
   if (!owns) {
     // the buy box: what you'd get right now, the best prizes, and a big shiny button. Real numbers only, no fake timers
-    const pulse = 0.5 + 0.5 * Math.sin(T_NOW * 3), earned = live ? tier : 0;
+    const pulse = 0.5 + 0.5 * Math.sin(T_NOW * 3), earned = live ? tier + passBonus() : 0;   // paid tiers reached plus bonus stars, both unlock with the pass
     ctx.globalAlpha = 0.25 + 0.25 * pulse; rect(tx - 2, cy - 2, tw + 4, 48, '#ffd166'); ctx.globalAlpha = 1;
     gbox(tx, cy, tw, 44, '#5a3408', '#1e1004', '#ffd166');
     ctx.save(); ctx.beginPath(); ctx.rect(tx + 1, cy + 1, tw - 2, 42); ctx.clip();
@@ -602,7 +603,7 @@ function storeDust(st) {
   gbox(12, y2, W - 24, 30, '#161236', '#0c0a20', '#3a2f66');
   text('WHAT IT BUYS:', 18, y2 + 5, '#ffd166', FS);
   text(`THE PASS ${PASS.sd}   ARMORY WEAPONS 1,400+   SHOP COSMETICS 300+   COINS 100+`, 76, y2 + 5, '#dfe4f5', FS);
-  text('FREE STARDUST: DAILY REWARD DAYS 3, 5 AND 7, PASS TIERS AND BONUS STARS', 18, y2 + 17, '#a59cd0', FS);
+  text('FREE STARDUST: DAILY REWARD DAYS 3, 5 AND 7, PASS TIERS, AND BONUS STARS WITH THE PASS', 18, y2 + 17, '#a59cd0', FS);
 }
 
 // ---------- SUPPORTER ----------
