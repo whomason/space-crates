@@ -7955,7 +7955,9 @@ function equipSlotGrid(st, x, y, w, h) {
 }
 // ---------- the sell and fuse bars under an item grid: two rows, so they fit the narrow hangar column too ----------
 const BAR_H = 34;
-const inUse = id => isEquipped(id) || Object.values((S.miners && S.miners.slots) || {}).includes(id);
+const inUse = id => isEquipped(id);
+// a miner placed on a planet can still be fused: fusing just takes it out of its slot (the slot keeps its waiting coins)
+const placedOn = id => { for (const p in (S.miners && S.miners.slots) || {}) if (S.miners.slots[p] === id) return p; return null; };
 function sellBar(st, ids, x, by, w) {
   panel(x, by, w, BAR_H, { bg: COL.void2, bd: COL.gold });
   if (st.pick.length) {
@@ -7981,7 +7983,7 @@ function fusable(id) { const d = getDef(id); return d.r < 6 && !/^(u|e)\|/.test(
 const fuseKey = id => { const d = getDef(id); return slotOf(d) || d.cat + '|' + d.sub; };
 const fuseScore = id => id.startsWith('t|miner') ? minerRate(id, 1) : power(getDef(id), effL(id));
 // the items an auto-fuse may use for one rarity: never equipped or placed ones, weakest first
-function fuseCands(ids, r) { return ids.filter(id => id && S.inv[id] && !inUse(id) && fusable(id) && getDef(id).r === r).sort((a, b) => fuseScore(a) - fuseScore(b)); }
+function fuseCands(ids, r) { return ids.filter(id => id && S.inv[id] && !inUse(id) && fusable(id) && getDef(id).r === r).sort((a, b) => (placedOn(a) ? 1 : 0) - (placedOn(b) ? 1 : 0) || fuseScore(a) - fuseScore(b)); }
 function fuseOut(ids) {
   if (!ids.length || ids.length !== fuseNeed(getDef(ids[0]).r) || ids.some(id => !S.inv[id] || inUse(id) || !fusable(id))) return null;
   const d0 = getDef(ids[0]), r = d0.r + 1, key = fuseKey(ids[0]);
@@ -7991,14 +7993,15 @@ function fuseOut(ids) {
   const fresh = pool.filter(i => !S.inv[i]); const pick = fresh.length && R0() < 0.65 ? fresh : pool;
   const out = pick[Math.floor(R0() * pick.length)];
   const g = Math.floor(ids.reduce((a, id) => a + gradeOf(id), 0) / ids.length);
-  for (const id of ids) { delete S.inv[id]; delete S.fresh[id]; }
+  let unplaced = 0; for (const id of ids) { const p = placedOn(id); if (p) { delete S.miners.slots[p]; unplaced++; } delete S.inv[id]; delete S.fresh[id]; }
   const res = addItem(out, g); S.stats.fused = (S.stats.fused || 0) + 1;
-  return { id: out, isNew: !!(res && res.isNew) };
+  return { id: out, isNew: !!(res && res.isNew), unplaced };
 }
 function fuseFx(r) { SND.play('reveal', r); if (r >= 4) SND.play('fanfare'); HUB.flashT = 2; HUB.flashCol = RAR[r].c === 'RAINBOW' ? '#fff' : RAR[r].c; }
 function doFuse(st) {
   const res = fuseOut(st.pick.slice()); if (!res) { toast('NOTHING TO FUSE INTO FOR THIS SLOT', COL.coral); return; }
   st.pick = []; st.autoArm = null; st.fuseRes = { id: res.id, ids: [res.id], t: 0, isNew: res.isNew }; dirty(); save(); fuseFx(getDef(res.id).r);
+  if (res.unplaced) toast(`${res.unplaced} PLACED MINER${res.unplaced > 1 ? 'S' : ''} TAKEN OFF ${res.unplaced > 1 ? 'THEIR PLANETS' : 'ITS PLANET'}`, COL.mint);
 }
 function autoFuse(st, ids, r) {
   const cands = fuseCands(ids, r), need = fuseNeed(r), outs = [];
@@ -8007,6 +8010,7 @@ function autoFuse(st, ids, r) {
   outs.sort((a, b) => fuseScore(b.id) - fuseScore(a.id));
   st.fuseRes = { id: outs[0].id, ids: outs.map(o => o.id), t: 0, isNew: outs.some(o => o.isNew) }; dirty(); save(); fuseFx(r + 1);
   toast(`FUSED ${fmt(outs.length * need)} ${RAR[r].n} INTO ${outs.length} ${RAR[r + 1].n}`, COL.cyan); track('sink', { k: 'autofuse', r, n: outs.length });
+  const un = outs.reduce((a, o) => a + (o.unplaced || 0), 0); if (un) toast(`${un} PLACED MINER${un > 1 ? 'S' : ''} TAKEN OFF ${un > 1 ? 'THEIR PLANETS' : 'ITS PLANET'}`, COL.mint);
 }
 function fuseBar(st, ids, x, by, w) {
   panel(x, by, w, BAR_H, { bg: '#16102a', bd: COL.cyan });
@@ -8306,11 +8310,11 @@ function panelMining(st) {
   if (perMin > 0) text(`${fmt(Math.round(perMin))}/MIN`, x + 246, y + 14, COL.mint, FS);
   if (button(x + 150, y + 9, 90, 14, 'COLLECT ALL', { font: FS, disabled: total < 1, col: '#4a3a10', tc: COL.gold })) { earn(Math.floor(total)); S.miners.acc = {}; SND.play('coin'); SND.play('win'); toast(`+${fmt(total)} COINS FROM AUTO-MINERS`, COL.gold); dirty(); }
   if (slots.length && miners.length && !st.fuse && button(W - 14 - 156, y + 9, 76, 14, 'FILL BEST', { font: FS, kind: 'blue', tip: 'PUT YOUR BEST MINERS ON THE PLANETS THAT PAY MOST' })) { fillBestMiners(slots, miners); SND.play('pickup'); }
-  if (miners.length && button(W - 14 - 76, y + 9, 76, 14, st.fuse ? 'DONE FUSING' : 'FUSE MINERS', { font: FS, kind: st.fuse ? 'cream' : 'blue', tip: '5 SPARE MINERS OF ONE RARITY BECOME 1 OF THE NEXT' })) { st.fuse = !st.fuse; st.pick = []; st.fuseRes = null; st.autoArm = null; SND.play('click'); }
+  if (miners.length && button(W - 14 - 76, y + 9, 76, 14, st.fuse ? 'DONE FUSING' : 'FUSE MINERS', { font: FS, kind: st.fuse ? 'cream' : 'blue', tip: '5 MINERS OF ONE RARITY BECOME 1 OF THE NEXT. PLACED ONES COME OFF THEIR PLANET' })) { st.fuse = !st.fuse; st.pick = []; st.fuseRes = null; st.autoArm = null; SND.play('click'); }
   // fusing takes the whole panel: spare miners on top, the fuse bar under them
   if (st.fuse) {
     st.pick = (st.pick || []).filter(id => S.inv[id] && !inUse(id));
-    text('FUSE SPARE MINERS (BEST FIRST). PLACED ONES ARE SAFE', x, y + 28, COL.ink, FS);
+    text('FUSE MINERS (BEST FIRST). PLACED ONES (CORNER MARK) COME OFF THEIR PLANET', x, y + 28, COL.ink, FS);
     const gy = y + 40, gh = H - 14 - BAR_H - 2 - gy;
     const c0 = itemGrid(st, miners, x, gy, W - 28, gh, { cw: 30, ch: 26, multi: st.pick, eqd: Object.values(S.miners.slots), empty: 'FIND AUTO-MINERS IN MINING CRATES' });
     const c = st.fuseRes ? null : c0;
@@ -8334,9 +8338,11 @@ function panelMining(st) {
   const py = H - 78;
   rect(x, py - 4, W - 28, 1, COL.void3);
   if (st.mslot) {
-    text(`PLACE A MINER ON ${planetDef(st.mslot).name} (BEST FIRST):`, x, py + 3, COL.ink, FS);
-    const c = itemGrid(st, miners, x, py + 14, W - 28, H - 14 - (py + 14), { cw: 30, ch: 26, eqd: Object.values(S.miners.slots), empty: 'FIND AUTO-MINERS IN MINING CRATES' });
-    if (c && c !== 'NONE') { for (const p in S.miners.slots) if (S.miners.slots[p] === c) delete S.miners.slots[p]; S.miners.slots[st.mslot] = c; SND.play('pickup'); dirty(); }
+    const cur = S.miners.slots[st.mslot];
+    text(`PLACE A MINER ON ${planetDef(st.mslot).name} (BEST FIRST)${cur ? '. NONE EMPTIES THE SLOT' : ''}:`, x, py + 3, COL.ink, FS);
+    const c = itemGrid(st, cur ? [null].concat(miners) : miners, x, py + 14, W - 28, H - 14 - (py + 14), { cw: 30, ch: 26, sel: cur, eqd: Object.values(S.miners.slots), empty: 'FIND AUTO-MINERS IN MINING CRATES' });
+    if (c === 'NONE' && cur) { delete S.miners.slots[st.mslot]; SND.play('click'); dirty(); toast(`${planetDef(st.mslot).name} SLOT EMPTIED`, COL.mint); }
+    else if (c && c !== 'NONE') { for (const p in S.miners.slots) if (S.miners.slots[p] === c) delete S.miners.slots[p]; S.miners.slots[st.mslot] = c; SND.play('pickup'); dirty(); }
   } else if (slots.length) text('CLICK A PLANET ABOVE TO PLACE A MINER THERE', x, py + 3, COL.dim, FS);
 }
 // best miners onto the best-paying planets
