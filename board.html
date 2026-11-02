@@ -222,7 +222,7 @@ function render() {
   <div class="grid">
     <div class="tiles">
       ${tileH('Playing right now', fmt(T.online), 'active in the last 5 min', 'live')}
-      ${tileH('Players today', fmt(T.dau), `${fmt(T.wau)} this week · ${fmt(T.mau)} this month`)}
+      ${tileH('Players today', fmt(T.dau), `${fmt(T.wau)} last 7 days · ${fmt(T.mau)} last 30`)}
       ${tileH('New players', fmt(T.new_period), `${fmt(T.new_today)} today`)}
       ${tileH('All-time players', fmt(T.players), `${fmt(T.accounts)} with an account`)}
       ${tileH('Avg session', mins(T.avg_mins), `median ${mins(T.med_mins)}`)}

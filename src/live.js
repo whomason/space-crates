@@ -76,7 +76,7 @@ function dailyClaim() {
   }
   const d = S.daily || {}, today = localDay(), y = localDay(new Date(Date.now() - 864e5));
   const streak = d.last === y ? (d.streak || 0) + 1 : 1, day = ((streak - 1) % 7) + 1, rw = dailyDays()[day - 1];
-  S.daily = { last: today, streak }; S.coins += rw.coins; S.stats.earned = (S.stats.earned || 0) + rw.coins;
+  S.daily = { last: today, streak }; earn(rw.coins);   // counts toward COINS EARNED (it used to go to a stat nothing showed)
   for (const t of rw.crates) S.choiceQueue.push({ tier: t, title: 'DAILY CRATE' });
   passXP(300); dirty(); SND.play('fanfare'); DAILY.flash = 1; toast(`DAY ${day}: +${fmt(rw.coins)} COINS${rw.crates.length ? ` + ${rw.crates.length} CRATE${rw.crates.length > 1 ? 'S' : ''}` : ''}`, COL.gold);
 }

@@ -72,7 +72,7 @@ function drawCrateBay(dt) {
   const kind = BAY.kind, tier = BAY.tier, ki = kindInfo(kind);
   const cx = 222; const cost = crateCost(kind, tier); const tc = tierColor(tier);
   drawBeam(cx, 26, 132, 90, tc);
-  textO(`${TIERS[tier].n} ${ki.n} CRATE`, cx, 28, COL.ink, '#000', FB, 1);
+  { let t = `${TIERS[tier].n} ${ki.n} CRATE`; if (textW(t, FB) > 186) t = `${ki.n} CRATE`; textO(t, cx, 28, COL.ink, '#000', textW(t, FB) > 186 ? FS : FB, 1); }   // long boss names used to run into the odds column
   const bob = Math.round(Math.sin(T_NOW * 2) * 2);
   ellipse(cx, 130, 46, 8, COL.void0); ellipse(cx, 128, 42, 6, COL.steel); ellipse(cx, 127, 38, 4, COL.void3); for (let i = 0; i < 16; i++) { const a = i / 16 * TAU; px(cx + Math.cos(a) * 41, 128 + Math.sin(a) * 6, (Math.floor(T_NOW * 8) + i) % 4 ? tc : '#fff'); }
   shadow(cx, 125, 32, 4, 0.5);
@@ -135,10 +135,11 @@ function drawCrateBay(dt) {
   const mods = [];
   if (S.firstOpen) mods.push(['FIRST CRATE EVER: RARE OR BETTER', COL.lilac]);
   const lk = luckPct(); if (lk > 0 && !kind.startsWith('finisher')) mods.push([`LUCK ${lk}%: ODDS SHIFTED UP`, COL.blueL]);
+  if (warmTier() && !kind.startsWith('finisher')) mods.push([`WARMED UP: +${warmTier()}% OF THAT LUCK`, COL.gold]);
   if (kind.startsWith('class:')) mods.push([`ONLY ${CLS[kind.split(':')[1]].n}S`, COL.pink]);
   if (kind.startsWith('salvage:')) mods.push([`ONLY ${planetDef(+kind.split(':')[1]).name} GEAR`, COL.pink]);
   if (kind.startsWith('boss:')) mods.push(['BOSS GEAR ONLY, RARE OR BETTER', COL.pink]);
-  if (kind.startsWith('finisher:')) mods.push([`ONLY YOUR ${tot} MISSING PIECES`, COL.gold]);
+  if (kind.startsWith('finisher:')) mods.push([`ONLY YOUR ${tot} MISSING PIECES, UP TO LEGENDARY`, COL.gold]);
   if (BAY.upgrader && tier < 7) mods.push([`UPGRADER: ${Math.round(UPG_CHANCE[tier] * 100)}% BUMP, ${100 - Math.round(UPG_CHANCE[tier] * 100)}% BURN`, COL.pink]);
   mods.push([`DOUBLE OR NOTHING: ${donChance(0)}% ON COMMONS, LESS THE RARER IT IS`, COL.dim]);
   for (const [m, c] of mods) for (const l of wrap(m, RW - 12, FS)) { if (yy > H - 12) break; text(l, RX + 6, yy, c, FS); yy += 8; }
@@ -207,7 +208,7 @@ function labelsSim(id, sh, tier = 0) {
   return L;
 }
 function pullValue(r) { const d = getDef(r.id); return Math.round(SELL_VAL[d.r] * (1 + 0.1 * (r.tier ?? (OPEN ? OPEN.tier : 0)))); }
-function sellPull(r) { if (r.lost || r.sold) return 0; const v = pullValue(r); r.sold = true; S.coins += v; S.stats.sold = (S.stats.sold || 0) + 1; SND.play('coin'); dirty(); return v; }
+function sellPull(r) { if (r.lost || r.sold) return 0; const v = pullValue(r); r.sold = true; earn(v); S.stats.sold = (S.stats.sold || 0) + 1; SND.play('coin'); dirty(); return v; }
 function collectOpen() {
   const O = OPEN; if (!O || O.collected) return; O.collected = true; const got = [];
   for (const r of O.results) if (!r.lost && !r.sold) { const res = addItem(r.id, r.tier ?? O.tier); got.push(res); }
@@ -607,7 +608,7 @@ function drawShow(O, i, single) {
     const L = S.inv[id] ? S.inv[id].l : 1; const sh = O.shadow[id] || { l: L, p: 0 };
     text(`LEVEL ${sh.l}${sh.l >= 10 ? ' MAX' : ''}`, cxl, 136, COL.cyan, FS, 1); if (sh.l < 10) bar(cxl - 40, 130, 80, 4, sh.p / sh.l, COL.cyan, COL.void2);
   }
-  for (const l of ls) { const w = textW(l, FS) + 8; panel(lx, ly, w, 10, { bg: COL.void0, bd: LABEL_COL[l] || COL.gold, flat: true }); text(l, lx + 4, ly + 3, LABEL_COL[l] || COL.gold, FS); lx += w + 3; }
+  for (const l of ls) { const w = textW(l, FS) + 8; panel(lx, ly, w, 10, { bg: COL.void0, bd: labelCol(l), flat: true }); text(l, lx + 4, ly + 3, labelCol(l), FS); lx += w + 3; }
   // behavior first, then why it matters
   let yy = 162; const head = itemHeadline(d);
   wrap(head, 280, FB).slice(0, 2).forEach(l => { textO(l, 10, yy, d.r === 6 ? 'RAINBOW' : c, '#000', FB); yy += 10; });
@@ -659,7 +660,7 @@ function drawCards(O) {
       drawItemIn(r.id, c.x + 3, y + 6 - (hov ? 2 : 0), c.w - 6, 40, { maxSc: d.w > 16 ? 2 : 3 });
       text(RAR[d.r].n, c.x + c.w / 2, y + 48, d.r === 6 ? 'RAINBOW' : RAR[d.r].c, FS, 1);
       const nm = wrap(d.name, c.w - 6, FS); nm.slice(0, 2).forEach((l, k) => text(l, c.x + c.w / 2, y + 56 + k * 7, COL.ink, FS, 1));
-      const lab = r.lost ? 'LOST' : r.labels[0] || ''; if (lab) { text(lab === 'NEW' ? 'NEW!' : lab, c.x + c.w / 2, y + c.h - 12, r.lost ? COL.coral : LABEL_COL[lab] || COL.gold, FS, 1); }
+      const lab = r.lost ? 'LOST' : r.labels[0] || ''; if (lab) { text(lab === 'NEW' ? 'NEW!' : lab, c.x + c.w / 2, y + c.h - 12, r.lost ? COL.coral : labelCol(lab), FS, 1); }
       if (r.lost) { ctx.globalAlpha = 0.6; rect(c.x + 1, y + 1, c.w - 2, c.h - 2, '#000'); ctx.globalAlpha = 1; text('LOST', c.x + c.w / 2, y + 30, COL.coral, FB, 1); }
       else if (r.sold) { ctx.globalAlpha = 0.6; rect(c.x + 1, y + 1, c.w - 2, c.h - 2, '#000'); ctx.globalAlpha = 1; text('SOLD', c.x + c.w / 2, y + 30, COL.gold, FB, 1); }
     }
@@ -706,7 +707,7 @@ function drawChoiceOverlay() {
     text(RAR[d.r].n, x + cw / 2, y0 + 56, d.r === 6 ? 'RAINBOW' : RAR[d.r].c, FS, 1);
     wrap(d.name, cw - 8, FS).slice(0, 2).forEach((l, k) => text(l, x + cw / 2, y0 + 64 + k * 7, COL.ink, FS, 1));
     wrap(itemHeadline(d), cw - 8, FS).slice(0, 3).forEach((l, k) => text(l, x + cw / 2, y0 + 82 + k * 7, d.r === 6 ? COL.gold : RAR[d.r].c === 'RAINBOW' ? COL.gold : RAR[d.r].c, FS, 1));
-    const lab = C.labels[i][0]; if (lab) text(lab === 'NEW' ? 'NEW DISCOVERY' : lab, x + cw / 2, y0 + chh - 12, LABEL_COL[lab] || COL.gold, FS, 1);
+    const lab = C.labels[i][0]; if (lab) text(lab === 'NEW' ? 'NEW DISCOVERY' : lab, x + cw / 2, y0 + chh - 12, labelCol(lab), FS, 1);
     ctx.globalAlpha = 1;
     if (hov) { IN.cursor = 'pointer'; if (!C.demo || C.demo.id !== id) C.demo = makeDemo(id); if (clickIn(x, y0, cw, chh)) { C.picked = i; C.pt = 0; const res = addItem(id, C.tier); SND.play('win'); toast(res.isNew ? `KEPT: ${d.name}` : `KEPT: ${d.name} (LEVEL ${res.to})`, COL.mint); if (d.r >= 4) { HUB.flashT = 4; HUB.flashCol = RAR[d.r].c; } checkTitles(); dirty(); } }
   });

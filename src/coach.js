@@ -69,21 +69,21 @@ function drawCoach(dt) {
 function coachHub(LX, LY) {
   // first visit: one line, then straight into the first crate. The station tour waits until later.
   if ((S.stats.crates || 0) === 0) return coach('hubstart', [
-    { title: 'INCOMING!', r: [318, 28, 156, 50], t: `${S.name ? S.name + '! ' : ''}A CRATE JUST CRASH-LANDED IN OUR BAY. COULD BE JUNK. COULD BE LEGENDARY. ONLY ONE WAY TO FIND OUT...`, btn: 'CRACK IT OPEN', go: () => openStation('crates') },
+    { title: 'INCOMING!', r: [318, 28, 156, 50], t: `${S.name ? S.name + '! ' : ''}A CRATE JUST LANDED IN THE BAY. LET'S OPEN IT.`, btn: 'CRACK IT OPEN', go: () => openStation('crates') },
   ]);
   if (S.planet.landings === 0) return;   // the station tour only after their first landing
   coach('hub', [
-    { title: 'HOME BASE', r: [6, 26, 170, 104], t: 'LAUNCH = PLANETS, ORE, ALIENS, COINS. CRATES = SPEND THE COINS. LOCKER = SUIT UP. THE BOX TOP RIGHT ALWAYS SAYS WHAT TO DO NEXT.' },
+    { title: 'HOME BASE', r: [6, 26, 170, 104], t: 'LAUNCH = EARN COINS. CRATES = SPEND THEM. LOCKER = GEAR UP. TOP RIGHT SAYS WHAT IS NEXT.' },
   ]);
 }
 function coachBay(kind, tier) {
   if ((S.stats.crates || 0) === 0 && kind) return coach('baystart', [
-    { title: 'DO IT', r: [128, 184, 46, 28], side: 'above', t: 'FIRST ONE IS ON ME, AND IT IS ALWAYS RARE OR BETTER. HIT IT.', btn: 'OPEN!', go: () => { if (S.coins >= crateCost(kind, tier)) startOpen(kind, tier, 1); } },
+    { title: 'DO IT', r: [128, 184, 46, 28], side: 'above', t: 'YOUR FIRST CRATE IS ALWAYS RARE OR BETTER. HIT IT.', btn: 'OPEN!', go: () => { if (S.coins >= crateCost(kind, tier)) startOpen(kind, tier, 1); } },
   ]);
   if (S.planet.landings === 0) return;
   coach('bay', [
-    { title: 'SHOPPING', r: [4, 24, 120, 120], side: 'right', t: 'WEAPONS HIT, ARMOR SAVES YOU, SHIP PARTS UNLOCK NEW PLANETS, MINING TOOLS CRACK RICHER ORE. THE SILHOUETTES ARE THE JACKPOTS.' },
-    { title: 'BIGGER CRATES', r: [322, 24, 154, 134], side: 'left', t: 'BETTER TIERS COST MORE AND ROLL RARER, STRONGER LOOT. EACH NEW PLANET UNLOCKS THE NEXT TIER.' },
+    { title: 'SHOPPING', r: [4, 24, 120, 120], side: 'right', t: 'SHIP PARTS UNLOCK PLANETS. MINING TOOLS CRACK RICHER ORE. SILHOUETTES ARE JACKPOTS.' },
+    { title: 'BIGGER CRATES', r: [322, 24, 154, 134], side: 'left', t: 'PRICIER TIERS ROLL RARER LOOT. NEW PLANETS UNLOCK NEW TIERS.' },
   ]);
 }
 function coachReveal(single) {
@@ -93,40 +93,40 @@ function coachReveal(single) {
     const C = coachState(); C.done.reveal = Math.max(C.done.reveal || 0, 2);
     const nm = RAR[d.r].n;
     return coach('revealstart', [
-      { title: d.r >= 4 ? 'NO WAY!' : d.r >= 2 ? 'OOOH, ' + nm + '!' : 'NOT BAD!', r: [6, 20, 284, 120], side: 'below', t: `A ${nm} ${d.name}! THE RARER THE GLOW, THE HARDER IT HITS. ENOUGH STARING. LET'S GO BLAST SOMETHING WITH IT.`, btn: slotOf(d) ? 'EQUIP + LAUNCH' : 'LAUNCH',
+      { title: d.r >= 4 ? 'NO WAY!' : d.r >= 2 ? 'OOOH, ' + nm + '!' : 'NOT BAD!', r: [6, 20, 284, 120], side: 'below', t: `A ${nm} ${d.name}! RARER GLOW = HARDER HIT. LET'S TRY IT.`, btn: slotOf(d) ? 'EQUIP + LAUNCH' : 'LAUNCH',
         go: () => { const id = r.id, sl = slotOf(d); collectOpen(); if (sl && S.inv[id]) { equipped(id); S.eq[sl] = id; S.stats.equips++; dirty(); SND.play('pickup'); } OPEN = null; if (!S.planet.visited[1]) startWarp(1); else startRun(1); } },   // straight to Dustmoor, no menus
     ]);
   }
   if (S.planet.landings === 0) return;
   coach('reveal', [
-    { title: 'KEEP, SELL OR GAMBLE', r: [296, 150, 176, 44], side: 'left', t: 'KEEP IT, SELL IT FOR COINS, OR DOUBLE OR NOTHING: WIN AND IT JUMPS A RARITY, LOSE AND IT IS GONE. COMMONS WIN 45%. RARER ITEMS, WORSE ODDS.' },
+    { title: 'KEEP, SELL OR GAMBLE', r: [296, 150, 176, 44], side: 'left', t: 'KEEP IT, SELL IT, OR DOUBLE OR NOTHING: WIN = ONE RARITY UP, LOSE = GONE.' },
   ]);
 }
 function coachLocker() {
   coach('locker', [
-    { title: 'SUIT UP', r: [198, 30, W - 212, H - 46], side: 'left', w: 180, t: 'CLICK GEAR TO WEAR IT. GREEN ARROW = UPGRADE. SPARE JUNK? SELL IT. 5 OF A RARITY? FUSE THEM INTO 1 RARER.' },
+    { title: 'SUIT UP', r: [198, 30, W - 212, H - 46], side: 'left', w: 180, t: 'CLICK GEAR TO WEAR IT. GREEN ARROW = UPGRADE. FUSE 5 OF A RARITY INTO 1 RARER.' },
   ]);
 }
 function coachMap() {
   coach('map', [
-    { title: 'THE GALAXY', r: [4, 30, W - 8, 150], side: 'below', t: '20 PLANETS. EACH ONE: NEW ORE, NEW ALIENS, ONE NASTY BOSS. BEAT THE BOSS AND GET YOUR SHIP RATING UP TO UNLOCK THE NEXT.' },
+    { title: 'THE GALAXY', r: [4, 30, W - 8, 150], side: 'below', t: '20 PLANETS. BEAT EACH BOSS AND RAISE YOUR SHIP RATING TO UNLOCK THE NEXT.' },
   ]);
 }
 function coachResults(haul) {
   coach('results', [
-    { title: 'PAYDAY!', t: haul ? 'ORE SOLD, BOUNTIES PAID, AND YOU FOUND CRATES! THOSE OPEN FREE. THEN SPEND THE COINS ON MORE. THAT IS THE LOOP. REPEAT UNTIL LEGENDARY.' : 'ORE SOLD, BOUNTIES PAID. SPEND THE COINS ON CRATES, GET STRONGER, LAND ON TOUGHER PLANETS. THAT IS THE LOOP. REPEAT UNTIL LEGENDARY.' },
+    { title: 'PAYDAY!', t: haul ? 'ORE SOLD. YOUR FOUND CRATES OPEN FREE. SPEND THE COINS ON MORE. THAT IS THE LOOP.' : 'ORE SOLD. SPEND THE COINS ON CRATES, GET STRONGER, GO FURTHER. THAT IS THE LOOP.' },
   ]);
 }
 // planet tips that don't stop the action: a short card at the top, once each
 const PTIPS = {
-  carrier: 'A CRATE CARRIER! CHASE IT DOWN BEFORE IT WARPS AWAY FOR A FREE CRATE',
-  wreck: 'A WRECK! STAND NEXT TO IT AND PRESS E TO SEARCH IT FOR CRATES AND CLUES',
-  cargo: 'CARGO FULL. FLY BACK TO YOUR SHIP AND PRESS E TO CASH IT IN',
-  o2: 'O2 IS LOW. HEAD BACK TO THE SHIP AND PRESS E, OR YOU LOSE HALF YOUR ORE',
-  windup: 'A ! MEANS IT IS WINDING UP AN ATTACK. HIT IT HARD NOW TO STAGGER IT',
-  boss: 'BOSS LAIR AHEAD. IT DROPS ARSENAL CRATES. HIT ITS GLOWING CORE WHEN IT IS STAGGERED',
-  combo: 'COMBO! KEEP KILLING FAST AND EVERY ALIEN PAYS MORE',
-  ore: 'THIS ORE NEEDS A BETTER MINING TOOL. GET ONE FROM MINING CRATES',
+  carrier: 'CRATE CARRIER! CATCH IT FOR A FREE CRATE',
+  wreck: 'A WRECK! PRESS E NEXT TO IT TO SEARCH IT',
+  cargo: 'CARGO FULL. PRESS E AT YOUR SHIP TO CASH IN',
+  o2: 'O2 LOW! GET TO YOUR SHIP OR LOSE HALF YOUR ORE',
+  windup: 'A ! MEANS AN ATTACK IS COMING. HIT IT NOW TO STAGGER IT',
+  boss: 'BOSS AHEAD. HIT ITS GLOWING CORE WHEN IT STAGGERS',
+  combo: 'COMBO! FAST KILLS PAY MORE',
+  ore: 'NEEDS A BETTER DRILL. GET ONE FROM MINING CRATES',
 };
 function ptip(k) {
   if (!RUN || RUN.tut || !S) return; const C = coachState(); if (C.vet || (C.done['p_' + k])) return;

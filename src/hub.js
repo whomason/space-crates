@@ -304,76 +304,124 @@ function equipSlotGrid(st, x, y, w, h) {
   if ((slot === 'weapon' || slot === 'gadget') && S.eq[slot] && !st.sell && !st.fuse && button(x + w - 160, y - 14, 44, 12, 'TEST IT', { font: FS, kind: 'blue', tip: 'TRY IT IN THE TEST RANGE' })) { startRange(S.eq[slot], 'locker'); return; }
   const mode = st.sell ? 'sell' : st.fuse ? 'fuse' : null;
   if (!st.fuse && button(x + w - 64, y - 14, 64, 12, st.sell ? 'DONE SELLING' : 'SELL ITEMS', { font: FS, kind: st.sell ? 'cream' : 'def', tip: 'SELL GEAR YOU DO NOT NEED FOR COINS' })) { st.sell = !st.sell; st.pick = []; SND.play('click'); }
-  if (!st.sell && button(x + w - (st.fuse ? 64 : 112), y - 14, st.fuse ? 64 : 44, 12, st.fuse ? 'DONE FUSING' : 'FUSE', { font: FS, kind: st.fuse ? 'cream' : 'blue', tip: '5 OF ONE RARITY BECOME 1 OF THE NEXT. 10 MYTHICS MAKE A COSMIC' })) { st.fuse = !st.fuse; st.pick = []; SND.play('click'); }
-  st.pick = (st.pick || []).filter(id => S.inv[id] && !isEquipped(id));
-  const gh = mode ? h - 26 : h;
-  const c = itemGrid(st, list, x, y, w, gh, { cw: big ? 40 : 30, ch: big ? 22 : 26, sel: mode ? null : S.eq[slot], multi: mode ? st.pick : null, empty: 'OPEN CRATES TO FIND MORE', eqd: mode ? Object.values(S.eq) : null });
+  if (!st.sell && button(x + w - (st.fuse ? 64 : 112), y - 14, st.fuse ? 64 : 44, 12, st.fuse ? 'DONE FUSING' : 'FUSE', { font: FS, kind: st.fuse ? 'cream' : 'blue', tip: '5 OF ONE RARITY BECOME 1 OF THE NEXT. 10 MYTHICS MAKE A COSMIC' })) { st.fuse = !st.fuse; st.pick = []; st.fuseRes = null; st.autoArm = null; SND.play('click'); }
+  st.pick = (st.pick || []).filter(id => S.inv[id] && !inUse(id));
+  const gh = mode ? h - BAR_H - 2 : h;
+  const c0 = itemGrid(st, list, x, y, w, gh, { cw: big ? 40 : 30, ch: big ? 22 : 26, sel: mode ? null : S.eq[slot], multi: mode ? st.pick : null, empty: 'OPEN CRATES TO FIND MORE', eqd: mode ? Object.values(S.eq) : null });
+  // while a fuse result is on screen the grid under it takes no clicks (NICE used to pick or equip whatever sat beneath it)
+  const c = st.fuseRes ? null : c0;
   if (st.fuseRes) drawFuseReveal(st, x, y, w, gh);
-  if (mode === 'sell') {
-    const by = y + h - 22; panel(x, by, w, 22, { bg: COL.void2, bd: COL.gold });
-    const tot = st.pick.reduce((a, id) => a + sellValue(id), 0);
-    if (st.pick.length) {
-      text(`${st.pick.length} PICKED`, x + 6, by + 4, COL.ink, FS); drawCoinIcon(x + 6, by + 12); text(`+${fmt(tot)}`, x + 16, by + 13, COL.gold, FS);
-      if (button(x + w - 144, by + 4, 88, 14, `SELL ${st.pick.length}`, { kind: 'primary', font: FS })) { let t = 0; const n = st.pick.length; for (const id of st.pick) t += sellItem(id); st.pick = []; SND.play('coin'); if (n > 1) SND.play('win'); toast(`SOLD ${n} ITEM${n > 1 ? 'S' : ''} FOR ${fmt(t)} COINS`, COL.gold); }
-      if (button(x + w - 52, by + 4, 46, 14, 'CLEAR', { font: FS })) st.pick = [];
-    } else {
-      const junk = ids.filter(id => !isEquipped(id) && getDef(id).r <= 1);
-      text(junk.length ? 'CLICK ITEMS TO PICK THEM' : 'CLICK ITEMS TO PICK THEM. EQUIPPED GEAR IS SAFE', x + 6, by + 8, COL.dim, FS);
-      if (junk.length && button(x + w - 128, by + 4, 122, 14, `PICK ${junk.length} COMMON+UNC`, { kind: 'cream', font: FS })) { st.pick = junk.slice(); SND.play('click'); }
-    }
-    if (c && c !== 'NONE') { if (isEquipped(c)) { SND.play('deny'); toast('THAT ONE IS EQUIPPED. SWAP IT OUT FIRST', COL.coral); } else if (isPremiumId(c)) { SND.play('deny'); toast('STORE AND REWARD ITEMS ARE YOURS TO KEEP. THEY CANNOT BE SOLD', COL.coral); } else { const i = st.pick.indexOf(c); if (i >= 0) st.pick.splice(i, 1); else st.pick.push(c); SND.play('click'); } }
-    return;
-  }
-  if (mode === 'fuse') {
-    const by = y + h - 22; panel(x, by, w, 22, { bg: '#16102a', bd: COL.cyan });
-    const r = st.pick.length ? getDef(st.pick[0]).r : -1;
-    if (!st.pick.length) text('PICK 5 OF ONE RARITY. THEY FUSE INTO 1 ITEM A RARITY UP', x + 6, by + 8, COL.dim, FS);
-    else {
-      text(`${st.pick.length}/${fuseNeed(r)} ${RAR[r].n}`, x + 6, by + 4, rcol(r) === 'RAINBOW' ? rainbow(T_NOW) : rcol(r), FS);
-      text(`BECOMES 1 ${RAR[Math.min(6, r + 1)].n}`, x + 6, by + 12, COL.mute, FS);
-      if (button(x + w - 144, by + 4, 88, 14, st.pick.length === fuseNeed(r) ? 'FUSE!' : `FUSE (NEED ${fuseNeed(r)})`, { kind: 'primary', font: FS, disabled: st.pick.length < fuseNeed(r) })) doFuse(st, slot);
-      if (button(x + w - 52, by + 4, 46, 14, 'CLEAR', { font: FS })) st.pick = [];
-    }
-    if (c && c !== 'NONE') {
-      const d = getDef(c), i = st.pick.indexOf(c);
-      if (i >= 0) { st.pick.splice(i, 1); SND.play('click'); }
-      else if (isEquipped(c)) { SND.play('deny'); toast('THAT ONE IS EQUIPPED. SWAP IT OUT FIRST', COL.coral); }
-      else if (!fusable(c)) { SND.play('deny'); toast(d.r >= 6 ? 'COSMIC IS THE TOP. NOTHING TO FUSE INTO' : isPremiumId(c) ? 'STORE AND REWARD ITEMS CANNOT BE FUSED' : 'ONE-OF-A-KIND ITEMS CANNOT BE FUSED', COL.coral); }
-      else if (st.pick.length && d.r !== r) { SND.play('deny'); toast(`PICK ${RAR[r].n} ITEMS ONLY, OR CLEAR FIRST`, COL.coral); }
-      else if (st.pick.length >= fuseNeed(r)) { SND.play('deny'); toast(`${fuseNeed(r)} IS ENOUGH. HIT FUSE!`, COL.coral); }
-      else { st.pick.push(c); SND.play('click'); }
-    }
-    return;
-  }
+  if (mode === 'sell') { sellBar(st, ids, x, y + h - BAR_H, w); if (c && c !== 'NONE') sellPick(st, c); return; }
+  if (mode === 'fuse') { if (!st.fuseRes) fuseBar(st, ids, x, y + h - BAR_H, w); else panel(x, y + h - BAR_H, w, BAR_H, { bg: '#16102a', bd: COL.cyan }); if (c && c !== 'NONE') fusePick(st, c); return; }
   if (c === 'NONE') { delete S.eq[slot]; SND.play('click'); dirty(); }
   else if (c) { equipped(c); if (S.eq[slot] !== c) S.stats.equips++; S.eq[slot] = c; SND.play('pickup'); dirty(); }
+}
+// ---------- the sell and fuse bars under an item grid: two rows, so they fit the narrow hangar column too ----------
+const BAR_H = 34;
+const inUse = id => isEquipped(id) || Object.values((S.miners && S.miners.slots) || {}).includes(id);
+function sellBar(st, ids, x, by, w) {
+  panel(x, by, w, BAR_H, { bg: COL.void2, bd: COL.gold });
+  if (st.pick.length) {
+    const tot = st.pick.reduce((a, id) => a + sellValue(id), 0), lb = `${st.pick.length} PICKED`, tw = textW(lb, FS);
+    text(lb, x + 6, by + 5, COL.ink, FS); drawCoinIcon(x + tw + 12, by + 4); text(`+${fmt(tot)}`, x + tw + 22, by + 5, COL.gold, FS);
+    if (button(x + 6, by + 16, w - 64, 14, `SELL ${st.pick.length}`, { kind: 'primary', font: FS })) { let t = 0; const n = st.pick.length; for (const id of st.pick) t += sellItem(id); st.pick = []; SND.play('coin'); if (n > 1) SND.play('win'); toast(`SOLD ${n} ITEM${n > 1 ? 'S' : ''} FOR ${fmt(t)} COINS`, COL.gold); }
+    if (button(x + w - 52, by + 16, 46, 14, 'CLEAR', { font: FS })) st.pick = [];
+    return;
+  }
+  const junk = ids.filter(id => !inUse(id) && getDef(id).r <= 1 && !isPremiumId(id));
+  text(w < 220 ? 'CLICK ITEMS TO SELL' : 'CLICK ITEMS TO PICK THEM. EQUIPPED GEAR IS SAFE', x + 6, by + 5, COL.dim, FS);
+  if (junk.length && button(x + 6, by + 16, Math.min(w - 12, 130), 14, `PICK ${junk.length} COMMON+UNC`, { kind: 'cream', font: FS })) { st.pick = junk.slice(); SND.play('click'); }
+}
+function sellPick(st, c) {
+  if (inUse(c)) { SND.play('deny'); toast('THAT ONE IS IN USE. SWAP IT OUT FIRST', COL.coral); }
+  else if (isPremiumId(c)) { SND.play('deny'); toast('STORE AND REWARD ITEMS ARE YOURS TO KEEP. THEY CANNOT BE SOLD', COL.coral); }
+  else { const i = st.pick.indexOf(c); if (i >= 0) st.pick.splice(i, 1); else st.pick.push(c); SND.play('click'); }
 }
 // ---------- fusion: 5 of a rarity -> 1 of the next (10 mythics for a cosmic) ----------
 const fuseNeed = r => r >= 5 ? 10 : 5;
 function fusable(id) { const d = getDef(id); return d.r < 6 && !/^(u|e)\|/.test(id) && !(d.o && d.o.t === 'art') && !d.nova && !isPremiumId(id); }
-function doFuse(st, slot) {
-  const ids = st.pick.slice(); if (!ids.length || ids.length !== fuseNeed(getDef(ids[0]).r) || ids.some(id => !S.inv[id] || isEquipped(id) || !fusable(id))) return;
-  const d0 = getDef(ids[0]), r = d0.r + 1, cat = d0.cat;
-  const pool = ((POOLS[cat] || [])[r] || []).filter(i => fusable(i) || r === 6).filter(i => slotOf(getDef(i)) === slot);
-  if (!pool.length) { toast('NOTHING TO FUSE INTO FOR THIS SLOT', COL.coral); return; }
+// what a fuse turns into: the same slot (any weapon for weapons), or the same kind of thing for items with no slot (auto-miners)
+const fuseKey = id => { const d = getDef(id); return slotOf(d) || d.cat + '|' + d.sub; };
+const fuseScore = id => id.startsWith('t|miner') ? minerRate(id, 1) : power(getDef(id), effL(id));
+// the items an auto-fuse may use for one rarity: never equipped or placed ones, weakest first
+function fuseCands(ids, r) { return ids.filter(id => id && S.inv[id] && !inUse(id) && fusable(id) && getDef(id).r === r).sort((a, b) => fuseScore(a) - fuseScore(b)); }
+function fuseOut(ids) {
+  if (!ids.length || ids.length !== fuseNeed(getDef(ids[0]).r) || ids.some(id => !S.inv[id] || inUse(id) || !fusable(id))) return null;
+  const d0 = getDef(ids[0]), r = d0.r + 1, key = fuseKey(ids[0]);
+  if (ids.some(id => fuseKey(id) !== key)) return null;
+  const pool = ((POOLS[d0.cat] || [])[r] || []).filter(i => (fusable(i) || r === 6) && fuseKey(i) === key);
+  if (!pool.length) return null;
   const fresh = pool.filter(i => !S.inv[i]); const pick = fresh.length && R0() < 0.65 ? fresh : pool;
   const out = pick[Math.floor(R0() * pick.length)];
   const g = Math.floor(ids.reduce((a, id) => a + gradeOf(id), 0) / ids.length);
   for (const id of ids) { delete S.inv[id]; delete S.fresh[id]; }
   const res = addItem(out, g); S.stats.fused = (S.stats.fused || 0) + 1;
-  st.pick = []; st.fuseRes = { id: out, t: 0, isNew: res && res.isNew }; dirty(); save();
-  SND.play('reveal', r); if (r >= 4) SND.play('fanfare'); HUB.flashT = 2; HUB.flashCol = RAR[r].c === 'RAINBOW' ? '#fff' : RAR[r].c;
+  return { id: out, isNew: !!(res && res.isNew) };
+}
+function fuseFx(r) { SND.play('reveal', r); if (r >= 4) SND.play('fanfare'); HUB.flashT = 2; HUB.flashCol = RAR[r].c === 'RAINBOW' ? '#fff' : RAR[r].c; }
+function doFuse(st) {
+  const res = fuseOut(st.pick.slice()); if (!res) { toast('NOTHING TO FUSE INTO FOR THIS SLOT', COL.coral); return; }
+  st.pick = []; st.autoArm = null; st.fuseRes = { id: res.id, ids: [res.id], t: 0, isNew: res.isNew }; dirty(); save(); fuseFx(getDef(res.id).r);
+}
+function autoFuse(st, ids, r) {
+  const cands = fuseCands(ids, r), need = fuseNeed(r), outs = [];
+  for (let i = 0; i + need <= cands.length; i += need) { const res = fuseOut(cands.slice(i, i + need)); if (!res) break; outs.push(res); }
+  st.pick = []; st.autoArm = null; if (!outs.length) { toast('NOTHING TO FUSE INTO FOR THIS SLOT', COL.coral); return; }
+  outs.sort((a, b) => fuseScore(b.id) - fuseScore(a.id));
+  st.fuseRes = { id: outs[0].id, ids: outs.map(o => o.id), t: 0, isNew: outs.some(o => o.isNew) }; dirty(); save(); fuseFx(r + 1);
+  toast(`FUSED ${fmt(outs.length * need)} ${RAR[r].n} INTO ${outs.length} ${RAR[r + 1].n}`, COL.cyan); track('sink', { k: 'autofuse', r, n: outs.length });
+}
+function fuseBar(st, ids, x, by, w) {
+  panel(x, by, w, BAR_H, { bg: '#16102a', bd: COL.cyan });
+  const narrow = w < 220;
+  if (st.pick.length) {
+    const r = getDef(st.pick[0]).r, need = fuseNeed(r), lb = `${st.pick.length}/${need} ${RAR[r].n}`;
+    text(lb, x + 6, by + 5, rcol(r), FS); if (!narrow) text(`BECOMES 1 ${RAR[Math.min(6, r + 1)].n}`, x + 14 + textW(lb, FS), by + 5, COL.mute, FS);
+    if (button(x + 6, by + 16, w - 64, 14, st.pick.length === need ? 'FUSE!' : `FUSE (NEED ${need})`, { kind: 'primary', font: FS, disabled: st.pick.length < need })) doFuse(st);
+    if (button(x + w - 52, by + 16, 46, 14, 'CLEAR', { font: FS })) st.pick = [];
+    return;
+  }
+  // nothing picked: pick 5 by hand, or auto-fuse every full set of one rarity (click a rarity twice)
+  const sets = []; for (let r = 0; r < 6; r++) { const n = fuseCands(ids, r).length; if (n >= fuseNeed(r)) sets.push([r, n]); }
+  const arm = st.autoArm && T_NOW - st.autoArm.t < 4 && sets.some(s => s[0] === st.autoArm.r) ? st.autoArm : null;
+  if (arm) { const n = Math.floor(fuseCands(ids, arm.r).length / fuseNeed(arm.r)); text(narrow ? `${n * fuseNeed(arm.r)} INTO ${n}. CLICK AGAIN` : `FUSE ${n * fuseNeed(arm.r)} ${RAR[arm.r].n} INTO ${n} ${RAR[arm.r + 1].n}? CLICK AGAIN`, x + 6, by + 5, COL.gold, FS); }
+  else text(sets.length ? (narrow ? 'PICK 5, OR AUTO-FUSE:' : 'PICK 5 OF ONE RARITY, OR AUTO-FUSE A WHOLE RARITY:') : (narrow ? 'PICK 5 OF ONE RARITY' : 'PICK 5 OF ONE RARITY. THEY FUSE INTO 1 ITEM A RARITY UP'), x + 6, by + 5, COL.dim, FS);
+  if (!sets.length) return;
+  const cw = Math.min(60, Math.floor((w - 12 - (sets.length - 1) * 3) / sets.length));
+  sets.forEach(([r, n], i) => {
+    const bx = x + 6 + i * (cw + 3), k = Math.floor(n / fuseNeed(r)), nm = RAR[r].n;
+    const lab = cw >= 52 ? `${nm.slice(0, 4)} X${k}` : cw >= 22 ? nm.slice(0, 3) : nm.slice(0, 1);
+    if (button(bx, by + 16, cw, 14, lab, { font: FS, kind: arm && arm.r === r ? 'cream' : 'def', tip: `AUTO-FUSE ${n} ${nm} INTO ${k} ${RAR[r + 1].n}. WEAKEST GO FIRST. EQUIPPED GEAR IS SAFE` })) {
+      if (arm && arm.r === r) autoFuse(st, ids, r); else { st.autoArm = { r, t: T_NOW }; SND.play('click'); }
+    }
+    rect(bx + 1, by + 28, cw - 2, 1, rcol(r));
+  });
+}
+function fusePick(st, c) {
+  const d = getDef(c), i = st.pick.indexOf(c), r = st.pick.length ? getDef(st.pick[0]).r : -1;
+  if (i >= 0) { st.pick.splice(i, 1); SND.play('click'); }
+  else if (inUse(c)) { SND.play('deny'); toast('THAT ONE IS IN USE. SWAP IT OUT FIRST', COL.coral); }
+  else if (!fusable(c)) { SND.play('deny'); toast(d.r >= 6 ? 'COSMIC IS THE TOP. NOTHING TO FUSE INTO' : isPremiumId(c) ? 'STORE AND REWARD ITEMS CANNOT BE FUSED' : 'ONE-OF-A-KIND ITEMS CANNOT BE FUSED', COL.coral); }
+  else if (st.pick.length && d.r !== r) { SND.play('deny'); toast(`PICK ${RAR[r].n} ITEMS ONLY, OR CLEAR FIRST`, COL.coral); }
+  else if (st.pick.length >= fuseNeed(r)) { SND.play('deny'); toast(`${fuseNeed(r)} IS ENOUGH. HIT FUSE!`, COL.coral); }
+  else { st.pick.push(c); st.autoArm = null; SND.play('click'); }
 }
 function drawFuseReveal(st, x, y, w, h) {
-  const F = st.fuseRes; F.t += 1 / 60; const d = getDef(F.id), col = d.r === 6 ? rainbow(T_NOW) : RAR[d.r].c;
+  const F = st.fuseRes; F.t += 1 / 60; const ids = F.ids || [F.id], d = getDef(ids[0]), col = d.r === 6 ? rainbow(T_NOW) : RAR[d.r].c;
   ctx.globalAlpha = 0.85; rect(x, y, w, h, '#05020c'); ctx.globalAlpha = 1;
   const cx = x + w / 2, cy = y + h / 2 - 8, k = Math.min(1, F.t / 0.35);
   ctx.save(); ctx.translate(cx, cy); ctx.rotate(T_NOW * 0.8); ctx.globalAlpha = 0.25;
   for (let i = 0; i < 10; i++) { ctx.fillStyle = i % 2 ? col : '#fff'; ctx.beginPath(); ctx.moveTo(0, 0); const a = i / 10 * TAU; ctx.lineTo(Math.cos(a - 0.15) * 90, Math.sin(a - 0.15) * 90); ctx.lineTo(Math.cos(a + 0.15) * 90, Math.sin(a + 0.15) * 90); ctx.fill(); }
   ctx.restore(); ctx.globalAlpha = 1;
-  ctx.save(); ctx.translate(cx, cy); ctx.scale(k, k); const sc = Math.max(1, Math.min(3, Math.floor(80 / d.w))); drawItem(F.id, -d.w * sc / 2, -d.h * sc / 2, sc); ctx.restore();
-  textO('FUSED!', cx, y + 6, COL.gold, '#000', FB, 1, 2);
-  text(d.name, cx, cy + 30, col, FS, 1); text(RAR[d.r].n + (F.isNew ? '  NEW!' : '  (LEVELED UP)'), cx, cy + 40, COL.dim, FS, 1);
+  if (ids.length === 1) { ctx.save(); ctx.translate(cx, cy); ctx.scale(k, k); const sc = Math.max(1, Math.min(3, Math.floor(80 / d.w))); drawItem(ids[0], -d.w * sc / 2, -d.h * sc / 2, sc); ctx.restore(); }
+  else {
+    const n = Math.min(ids.length, Math.max(1, Math.floor((w - 16) / 32))), sx = Math.round(cx - (n * 32 - 4) / 2);
+    ids.slice(0, n).forEach((id, i) => { if (F.t < i * 0.06) return; const dd = getDef(id); panel(sx + i * 32, cy - 14, 28, 28, { bg: COL.void0, bd: dd.r === 6 ? rainbow(T_NOW) : RAR[dd.r].c, flat: true }); drawItemIn(id, sx + i * 32 + 1, cy - 13, 26, 26, { maxSc: 1 }); });
+    if (ids.length > n) text(`+${ids.length - n} MORE`, cx, cy + 18, COL.dim, FS, 1);
+  }
+  textO(ids.length > 1 ? `FUSED X${ids.length}!` : 'FUSED!', cx, y + 6, COL.gold, '#000', FB, 1, 2);
+  if (ids.length === 1) { text(d.name, cx, cy + 30, col, FS, 1); text(RAR[d.r].n + (F.isNew ? '  NEW!' : '  (LEVELED UP)'), cx, cy + 40, COL.dim, FS, 1); }
+  else text(`BEST: ${d.name}`, cx, cy + 30, col, FS, 1);
   if (F.t > 0.6 && (button(cx - 30, y + h - 22, 60, 16, 'NICE', { kind: 'primary', font: FS }) || kp('Enter'))) st.fuseRes = null;
 }
 function panelLocker(st) {
@@ -539,6 +587,7 @@ function panelWorkshop(st) {
 }
 function blueprintPicker(st) {
   const P = st.bpick; const x = 14, y = 32;
+  if (!CLS[P.cls] || !RAR[P.maxR] || !POOLS['class:' + P.cls]) { st.bpick = null; return; } // a stale pick (renamed class, old save) used to crash the workshop
   textO(`BUILD A ${CLS[P.cls].n}: PICK ANY ONE, UP TO ${RAR[P.maxR].n}`, x, y - 2, COL.orange, '#000', FB);
   if (!P.cands) {
     const set = new Set(); for (const pg of PAGES) for (const id of pg.ids) { const d = getDef(id); if (d.cat === 'w' && d.sub === P.cls && d.r <= P.maxR && !owned(id) && d.o.t !== 'boss') set.add(id); }
@@ -598,7 +647,7 @@ function panelProfile(st) {
       if (hov && e && clickIn(bx, by, cw, 18)) { S.titles.eq = eqd ? null : t.id; SND.play('click'); dirty(); }
     });
   } else {
-    const s = S.stats; const lines = [['CRATES OPENED', s.crates], ['ALIENS DEFEATED', s.kills], ['ORE HAULED', s.ore], ['COINS EARNED', s.coinsEarned], ['WRECKS LOOTED', s.wrecks], ['BEST COMBO', 'X' + s.bestCombo], ['ITEMS FOUND', Object.keys(S.inv).length], ['LEGENDARY+', s.legendaries + s.mythics + s.cosmics], ['STAGGERS', s.staggers || 0], ['PERFECT DODGES', s.perfects || 0], ['REACTIONS FOUND', Object.keys(S.reactions || {}).length + '/' + REACT_KEYS.length], ['EVENTS WON', s.events || 0], ['CACHES DUG UP', s.caches || 0], ['DREAMS FOUND', Object.keys(S.inv).filter(isDream).length + '/' + DREAMS.length]];
+    const s = S.stats; const lines = [['CRATES OPENED', s.crates], ['ALIENS DEFEATED', s.kills], ['ORE HAULED', s.ore], ['COINS EARNED', s.coinsEarned], ['WRECKS LOOTED', s.wrecks], ['BEST COMBO', 'X' + s.bestCombo], ['ITEMS OWNED', Object.keys(S.inv).length], ['LEGENDARY+', s.legendaries + s.mythics + s.cosmics], ['STAGGERS', s.staggers || 0], ['PERFECT DODGES', s.perfects || 0], ['REACTIONS FOUND', Object.keys(S.reactions || {}).length + '/' + REACT_KEYS.length], ['EVENTS WON', s.events || 0], ['CACHES DUG UP', s.caches || 0], ['DREAMS FOUND', Object.keys(S.inv).filter(isDream).length + '/' + DREAMS.length]];
     lines.forEach(([k, v], i) => { const cy = ty + i * 9; text(k, x, cy, COL.mute, FS); text(typeof v === 'number' ? fmt(v) : v, x + w, cy, COL.ink, FS, 2); });
     const cy = ty + lines.length * 9 + 6;
     text('CALLSIGN', x, cy, COL.mute, FS); text(S.name || 'NOT SET', x, cy + 8, S.name ? COL.cream : COL.mute, FB);
@@ -610,25 +659,54 @@ function panelProfile(st) {
 function panelMining(st) {
   if (panelFrame('MINING OFFICE', COL.mint, true)) return;
   tickMiners();
-  const x = 14, y = 30; const slots = minerSlots(); const miners = Object.keys(S.inv).filter(id => id.startsWith('t|miner'));
+  const x = 14, y = 30; const slots = minerSlots();
+  // best first: highest coins per minute at the top (rate scales with the planet the same way for every miner)
+  const miners = Object.keys(S.inv).filter(id => id.startsWith('t|miner')).sort((a, b) => minerRate(b, 1) - minerRate(a, 1));
   text('BEAT A PLANET BOSS TO OPEN A MINING SLOT THERE. AUTO-MINERS EARN COINS WHILE YOU ARE AWAY (UP TO 8 HOURS)', x, y, COL.dim, FS);
-  let total = 0; for (const k in S.miners.acc) total += S.miners.acc[k];
+  let total = 0, perMin = 0; for (const k in S.miners.acc) total += S.miners.acc[k];
+  for (const p in S.miners.slots) { const id = S.miners.slots[p]; if (id && owned(id)) perMin += minerRate(id, +p); }
   drawCoinIcon(x, y + 12); text(fmt(total) + ' WAITING', x + 10, y + 12, COL.gold, FB);
+  if (perMin > 0) text(`${fmt(Math.round(perMin))}/MIN`, x + 246, y + 14, COL.mint, FS);
   if (button(x + 150, y + 9, 90, 14, 'COLLECT ALL', { font: FS, disabled: total < 1, col: '#4a3a10', tc: COL.gold })) { earn(Math.floor(total)); S.miners.acc = {}; SND.play('coin'); SND.play('win'); toast(`+${fmt(total)} COINS FROM AUTO-MINERS`, COL.gold); dirty(); }
-  if (!slots.length) text('NO SLOTS YET. BEAT THE BURROW QUEEN ON DUSTMOOR', W / 2, 120, COL.mute, FB, 1);
-  slots.forEach((p, i) => {
-    const bx = x + (i % 2) * 226, by = y + 30 + Math.floor(i / 2) * 36; const id = S.miners.slots[p]; const sel = st.mslot === p;
-    panel(bx, by, 222, 34, { bg: sel ? COL.void3 : COL.void1, bd: sel ? COL.mint : COL.void3, flat: true });
-    text(planetDef(p).name, bx + 4, by + 3, COL.ink, FS); text(`ORE: ${planetDef(p).ore[0]}`, bx + 4, by + 11, COL.mute, FS);
-    if (id) { drawItemIn(id, bx + 100, by + 3, 26, 26, { maxSc: 1 }); text(`${fmt(Math.round(minerRate(id, p)))}/MIN`, bx + 130, by + 6, COL.mint, FS); text(`${fmt(S.miners.acc[p] || 0)} READY`, bx + 130, by + 16, COL.gold, FS); }
-    else text('EMPTY SLOT', bx + 110, by + 12, COL.gold, FS);
-    if (clickIn(bx, by, 222, 34)) { st.mslot = p; SND.play('click'); }
-  });
-  if (st.mslot) {
-    text(`PLACE A MINER ON ${planetDef(st.mslot).name}:`, x, H - 64, COL.ink, FS);
-    const c = itemGrid(st, miners, x, H - 56, W - 28, 40, { cw: 30, ch: 26, empty: 'FIND AUTO-MINERS IN MINING CRATES' });
-    if (c && c !== 'NONE') { for (const p in S.miners.slots) if (S.miners.slots[p] === c) delete S.miners.slots[p]; S.miners.slots[st.mslot] = c; SND.play('pickup'); dirty(); }
+  if (slots.length && miners.length && !st.fuse && button(W - 14 - 156, y + 9, 76, 14, 'FILL BEST', { font: FS, kind: 'blue', tip: 'PUT YOUR BEST MINERS ON THE PLANETS THAT PAY MOST' })) { fillBestMiners(slots, miners); SND.play('pickup'); }
+  if (miners.length && button(W - 14 - 76, y + 9, 76, 14, st.fuse ? 'DONE FUSING' : 'FUSE MINERS', { font: FS, kind: st.fuse ? 'cream' : 'blue', tip: '5 SPARE MINERS OF ONE RARITY BECOME 1 OF THE NEXT' })) { st.fuse = !st.fuse; st.pick = []; st.fuseRes = null; st.autoArm = null; SND.play('click'); }
+  // fusing takes the whole panel: spare miners on top, the fuse bar under them
+  if (st.fuse) {
+    st.pick = (st.pick || []).filter(id => S.inv[id] && !inUse(id));
+    text('FUSE SPARE MINERS (BEST FIRST). PLACED ONES ARE SAFE', x, y + 28, COL.ink, FS);
+    const gy = y + 40, gh = H - 14 - BAR_H - 2 - gy;
+    const c0 = itemGrid(st, miners, x, gy, W - 28, gh, { cw: 30, ch: 26, multi: st.pick, eqd: Object.values(S.miners.slots), empty: 'FIND AUTO-MINERS IN MINING CRATES' });
+    const c = st.fuseRes ? null : c0;
+    if (st.fuseRes) drawFuseReveal(st, x, gy, W - 28, gh);
+    if (!st.fuseRes) fuseBar(st, miners, x, H - 14 - BAR_H, W - 28); else panel(x, H - 14 - BAR_H, W - 28, BAR_H, { bg: '#16102a', bd: COL.cyan });
+    if (c && c !== 'NONE') fusePick(st, c);
+    return;
   }
+  if (!slots.length) text('NO SLOTS YET. BEAT THE BURROW QUEEN ON DUSTMOOR', W / 2, 120, COL.mute, FB, 1);
+  // three columns of compact slots, so all 10 fit above the picker
+  const cols = 3, sw = Math.floor((W - 28 - (cols - 1) * 4) / cols), sh = 28;
+  slots.forEach((p, i) => {
+    const bx = x + (i % cols) * (sw + 4), by = y + 28 + Math.floor(i / cols) * (sh + 3); const id = S.miners.slots[p]; const sel = st.mslot === p;
+    panel(bx, by, sw, sh, { bg: sel ? COL.void3 : COL.void1, bd: sel ? COL.mint : COL.void3, flat: true });
+    text(planetDef(p).name, bx + 4, by + 4, COL.ink, FS); text(planetDef(p).ore[0], bx + 4, by + 13, COL.mute, FS);
+    if (id && owned(id)) { drawItemIn(id, bx + sw - 88, by + 2, 24, 24, { maxSc: 1 }); text(`${fmt(Math.round(minerRate(id, p)))}/MIN`, bx + sw - 4, by + 5, COL.mint, FS, 2); text(`${fmt(S.miners.acc[p] || 0)} READY`, bx + sw - 4, by + 15, COL.gold, FS, 2); }
+    else text('EMPTY SLOT', bx + sw - 4, by + 10, COL.gold, FS, 2);
+    if (clickIn(bx, by, sw, sh)) { st.mslot = p; SND.play('click'); }
+  });
+  // the picker
+  const py = H - 78;
+  rect(x, py - 4, W - 28, 1, COL.void3);
+  if (st.mslot) {
+    text(`PLACE A MINER ON ${planetDef(st.mslot).name} (BEST FIRST):`, x, py + 3, COL.ink, FS);
+    const c = itemGrid(st, miners, x, py + 14, W - 28, H - 14 - (py + 14), { cw: 30, ch: 26, eqd: Object.values(S.miners.slots), empty: 'FIND AUTO-MINERS IN MINING CRATES' });
+    if (c && c !== 'NONE') { for (const p in S.miners.slots) if (S.miners.slots[p] === c) delete S.miners.slots[p]; S.miners.slots[st.mslot] = c; SND.play('pickup'); dirty(); }
+  } else if (slots.length) text('CLICK A PLANET ABOVE TO PLACE A MINER THERE', x, py + 3, COL.dim, FS);
+}
+// best miners onto the best-paying planets
+function fillBestMiners(slots, miners) {
+  const ps = slots.slice().sort((a, b) => orePrice(planetDef(b).ore[1]) - orePrice(planetDef(a).ore[1]));
+  S.miners.slots = {}; ps.forEach((p, i) => { if (miners[i]) S.miners.slots[p] = miners[i]; }); dirty();
+  toast(`${Math.min(ps.length, miners.length)} MINERS PLACED, BEST ONES ON THE RICHEST PLANETS`, COL.mint);
 }
 
 // ---------- star map ----------

@@ -1780,11 +1780,12 @@ declare uid uuid := sc_private.me();
 begin
   if not sc_private.is_admin(uid) then raise exception 'MODERATORS ONLY'; end if;
   return jsonb_build_object(
+    -- days in Detroit time, like the data board (this used to split days at UTC midnight, 7-8pm in Michigan)
     'days', (select coalesce(jsonb_agg(x order by x.day), '[]'::jsonb) from (
        select g.day::date as day,
-         (select count(distinct e.device) from public.events e where e.at >= g.day and e.at < g.day + interval '1 day') as active,
-         (select count(*) from public.devices d where d.first_at >= g.day and d.first_at < g.day + interval '1 day') as new
-       from generate_series((now() at time zone 'utc')::date - 13, (now() at time zone 'utc')::date, interval '1 day') g(day)) x),
+         (select count(distinct e.device) from public.events e where e.at >= g.day at time zone 'America/Detroit' and e.at < (g.day + interval '1 day') at time zone 'America/Detroit' and e.device <> 'server') as active,
+         (select count(*) from public.devices d where d.first_at >= g.day at time zone 'America/Detroit' and d.first_at < (g.day + interval '1 day') at time zone 'America/Detroit') as new
+       from generate_series(((now() at time zone 'America/Detroit')::date - 13)::timestamp, (now() at time zone 'America/Detroit')::date::timestamp, interval '1 day') g(day)) x),
     'ret', (select jsonb_build_object(
        'd1', round(100.0 * count(*) filter (where exists (select 1 from public.events e where e.device = d.device and e.at >= d.first_at + interval '1 day' and e.at < d.first_at + interval '2 days')) / greatest(count(*), 1)),
        'd7', round(100.0 * count(*) filter (where exists (select 1 from public.events e where e.device = d.device and e.at >= d.first_at + interval '7 days' and e.at < d.first_at + interval '8 days')) / greatest(count(*), 1)),
@@ -1792,7 +1793,8 @@ begin
        from public.devices d where d.first_at > now() - interval '30 days' and d.first_at < now() - interval '8 days'),
     'ret1', (select round(100.0 * count(*) filter (where exists (select 1 from public.events e where e.device = d.device and e.at >= d.first_at + interval '1 day' and e.at < d.first_at + interval '2 days')) / greatest(count(*), 1))
        from public.devices d where d.first_at > now() - interval '15 days' and d.first_at < now() - interval '2 days'),
-    'mins', (select round(avg(m)) from (select max((e.data ->> 'm')::numeric) as m from public.events e where e.kind = 'beat' and e.at > now() - interval '7 days' group by e.device, e.data ->> 's') q),
+    -- a session's length is its last heartbeat or its goodbye, whichever is later (short sessions only send the goodbye)
+    'mins', (select round(avg(m), 1) from (select max(sc_private.num(e.data -> 'm')) as m from public.events e where e.kind in ('beat', 'end') and e.at > now() - interval '7 days' and e.data ? 's' group by e.device, e.data ->> 's') q where m > 0),
     'funnel', (select jsonb_build_object(
        'devices', (select count(*) from public.devices where first_at > now() - interval '30 days'),
        'crate', (select count(distinct device) from public.events where kind = 'first' and data ->> 'what' = 'crate' and at > now() - interval '30 days'),
@@ -1833,7 +1835,7 @@ begin
       'players', (select count(*) from public.devices),
       'accounts', (select count(*) from public.profiles where callsign is not null),
       'online', (select count(distinct device) from public.events where at > now() - interval '5 minutes' and device <> 'server'),
-      'dau', (select count(distinct device) from public.events where at > now() - interval '1 day' and device <> 'server'),
+      'dau', (select count(distinct device) from public.events where at >= today and device <> 'server'),   -- since midnight Detroit time, same as today's bar
       'wau', (select count(distinct device) from public.events where at > now() - interval '7 days' and device <> 'server'),
       'mau', (select count(distinct device) from public.events where at > now() - interval '30 days' and device <> 'server'),
       'new_today', (select count(*) from public.devices where first_at >= today),

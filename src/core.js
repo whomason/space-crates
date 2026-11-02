@@ -249,6 +249,10 @@ function fmt(n) {
 // ---------- input ----------
 const TOUCH = new Map();
 const IN = { mx: W / 2, my: H / 2, down: false, pr: false, rl: false, rdown: false, rpr: false, rrl: false, wheel: 0, keys: new Set(), kp: new Set(), used: false, touch: false, dragX: 0, dragY: 0, lastX: 0, lastY: 0, cursor: 'default' };
+// the last time the player touched anything. Time with no input doesn't count as play (an open tab is not a session)
+let LAST_INPUT = Date.now();
+for (const ev of ['pointerdown', 'pointermove', 'keydown', 'wheel', 'touchstart']) addEventListener(ev, () => { LAST_INPUT = Date.now(); }, { passive: true, capture: true });
+const idleFor = () => (Date.now() - LAST_INPUT) / 1000;
 function evPos(e) { const r = cvs.getBoundingClientRect(); IN.mx = (e.clientX - r.left) / r.width * W; IN.my = (e.clientY - r.top) / r.height * H; }
 function tpos(e) { const r = cvs.getBoundingClientRect(); return [(e.clientX - r.left) / r.width * W, (e.clientY - r.top) / r.height * H]; }
 cvs.addEventListener('pointerdown', e => { if (e.pointerType === 'touch') { const [x, y] = tpos(e); TOUCH.set(e.pointerId, { x, y, sx: x, sy: y, t: performance.now(), tap: true }); } });

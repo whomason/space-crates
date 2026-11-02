@@ -1,6 +1,6 @@
 // ===== META: analytics, crash logs, bug reports, legal pages, and the moderator stats screen =====
 // Analytics are our own (no outside trackers): a random id per browser, a few events, no personal info.
-const GAME_VER = '2026.10.29';
+const GAME_VER = '2026.11.02';
 const META = { q: [], sendT: 5, beatT: 60, sess: Math.random().toString(36).slice(2, 10), t0: Date.now(), act: 0, crashes: new Set(), on: false };
 // only talk to a real server (the website, or the local test server); never from a saved copy of the page
 META.on = (() => { try { return location.protocol === 'https:' || /^http:\/\/(localhost|127\.0\.0\.1)/.test(NET.url); } catch (e) { return false; } })();
@@ -23,10 +23,23 @@ function metaFlush() {
   const batch = META.q.splice(0, 40); META.flushing = true;
   anonRpc('track', { p_device: deviceId(), p_events: batch }).catch(() => { }).finally(() => { META.flushing = false; });
 }
+// ---------- warmed up: a longer sitting pays a little more ----------
+// Every 10 minutes of real play this sitting adds +1% luck and +2% landing coins, up to +5% / +10% at 50 minutes.
+// Only active time counts (no input for 2.5 minutes = paused), and stepping away for 10 minutes starts it over.
+const WARM = { s: 0, tier: 0, wall: Date.now() };
+function warmTier() { return WARM.tier; }
+function warmTick(dt) {
+  const now = Date.now(); if (now - WARM.wall > 600000 || idleFor() > 600) { WARM.s = 0; WARM.tier = 0; }
+  WARM.wall = now;
+  if (!document.hidden && idleFor() < 150) WARM.s += Math.min(dt, 0.25);
+  const t = Math.min(5, Math.floor(WARM.s / 600));
+  if (t > WARM.tier) { WARM.tier = t; if (S) { toast(`WARMED UP ${'I'.repeat(t)}: +${t}% LUCK, +${t * 2}% LANDING COINS`, COL.gold); SND.play('unlock'); } }
+}
 function metaTick(dt) {
+  warmTick(dt);
   if (!META.on) return;
   if (!META.started) { META.started = true; track('session', { s: META.sess, v: GAME_VER, w: innerWidth, h: innerHeight, touch: IN.touch ? 1 : 0, lv: S ? S.lvl : 0, pl: S ? S.planet.reached : 0, ref: (() => { try { return document.referrer ? new URL(document.referrer).hostname.slice(0, 40) : ''; } catch (e) { return ''; } })() }); }
-  if (!document.hidden) { META.act += Math.min(dt, 0.25); META.beatT -= dt; if (META.beatT <= 0) { META.beatT = 120; track('beat', { s: META.sess, m: Math.round(META.act / 60), sc: SCENE }); } }   // minutes actually on screen
+  if (!document.hidden && idleFor() < 150) { META.act += Math.min(dt, 0.25); META.beatT -= dt; if (META.beatT <= 0) { META.beatT = 120; track('beat', { s: META.sess, m: Math.round(META.act / 60), sc: SCENE }); } }   // minutes actually on screen
   META.sendT -= dt; if (META.sendT <= 0) { META.sendT = 15; metaFlush(); }
   if (S && NET.st === 'on') firstTime('signup');
   if (S && S.stats && S.stats.equips > 0) firstTime('equip');

@@ -11,7 +11,7 @@ function makeWorld(o = {}) {
 function weaponColor(id) { const d = getDef(id); const p = itemPal(d, Math.floor(T_NOW * 8) % (d.r === 6 ? 8 : 1)); return { core: hex(p.G[4]), mid: hex(p.G[3]), edge: hex(p.G[2]), dark: hex(p.G[1]) }; }
 function wsnd(w, name, p) { if (w.sndOn) SND.play(name, p); }
 function nearestEnemy(w, x, y, maxD = 1e9, skip) {
-  let best = null, bd = maxD;
+  let best = null, bd = maxD; if (!w) return null;
   for (const e of (w.ents || NO_ENTS)) { if (e.dead || e.under || e.hidden || (skip && skip.has(e))) continue; const d = Math.hypot(e.x - x, e.y - y) - e.r; if (d < bd) { bd = d; best = e; } }
   return best;
 }
@@ -607,9 +607,9 @@ function drawShots(w, ox, oy) {
 function drawTele(w, ox, oy) {
   drawHazards(w, ox, oy); drawBossSys(w, ox, oy);
   for (const t of w.tele) {
-    const k = t.t / t.max, blink = Math.floor(T_NOW * (8 + k * 16)) % 2;
+    const k = clamp(t.t / (t.max || 1), 0, 1), blink = Math.floor(T_NOW * (8 + k * 16)) % 2; // t.t can overshoot past max for a frame; a negative radius throws in ctx.ellipse
     if (t.line) { if (t.dmg > 0 && t.wd) { ctx.globalAlpha = 0.15 + 0.25 * k; ctx.strokeStyle = t.col || '#ff3050'; ctx.lineWidth = t.wd; ctx.beginPath(); ctx.moveTo(t.x - ox, t.y - oy); ctx.lineTo(t.x + Math.cos(t.a) * t.len - ox, t.y + Math.sin(t.a) * t.len - oy); ctx.stroke(); ctx.lineWidth = 1; } ctx.globalAlpha = 0.5 + 0.4 * blink; for (let d = 0; d < t.len; d += 4) px(t.x + Math.cos(t.a) * d - ox, t.y + Math.sin(t.a) * d - oy, '#ff3050'); ctx.globalAlpha = 1; continue; }
-    const x = t.x - ox, y = t.y - oy;
+    const x = t.x - ox, y = t.y - oy; if (!(t.r > 0)) continue;
     ctx.globalAlpha = 0.18 + 0.2 * k; ellipse(x, y, t.r, Math.floor(t.r * 0.6), '#ff2040'); ctx.globalAlpha = 1;
     ctx.globalAlpha = 0.6 + 0.4 * blink; ctx.strokeStyle = '#ff5060'; ctx.beginPath(); ctx.ellipse(x + 0.5, y + 0.5, t.r, t.r * 0.6, 0, 0, TAU); ctx.stroke();
     ctx.beginPath(); ctx.ellipse(x + 0.5, y + 0.5, t.r * k, t.r * 0.6 * k, 0, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;

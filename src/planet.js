@@ -162,6 +162,8 @@ function startRun(pi, opt = {}) {
   w.stepK = ({ dust: 0, sand: 0, dunes: 0, ash: 0, basalt: 0, storm: 0, salt: 1, crystal: 1, dark: 2, seabed: 2, reef: 2, metal: 3, rust: 3, tiles: 3, gold: 3, grass: 5, turf: 5, moss: 5, snow: 6, tundra: 6 }[p.detail] || 0) + (p.trait === 'HEAVY GRAVITY' ? 100 : 0);
   // aliens are tough on their own planet; they get easy once you're geared for the next one (weapons gain 15% per planet reached)
   w.hpMul = 1.6 * Math.pow(1.22, pi - 1) * (1 + S.nova.count * 0.6); w.dmgMul = 1.5 * Math.pow(1.14, pi - 1) * (1 + S.nova.count * 0.4);
+  // Dustmoor is where everyone learns: 47% of its landings ended in a loss (Nov 2026 board), more than any later planet. Softer aliens there only
+  if (pi === 1 && !S.nova.count) { w.hpMul = 1.25; w.dmgMul = 1.05; }
   // later planets hit harder still and swarm you: up to +60% health, +35% damage and ~40% more aliens by planet 20
   const hiP = w.hiP = clamp((pi - 3) / 17, 0, 1.5); w.hpMul *= 1 + 0.6 * hiP; w.dmgMul *= 1 + 0.35 * hiP;
   w.crit = L.crit; w.comboMax = L.combo;
@@ -181,6 +183,7 @@ function startRun(pi, opt = {}) {
     bossAvail: !(S.planet.bossCd[pi] > 0), lightningT: 6, meteorT: 5, spores: [], o2warn: 0, choice: null, evac: false, bannerT: 0, tut: S.tutorial.planet ? null : { i: 0, t: 0, dist: 0, fireT: 0 }, carrier: null, carrierT: 22 + R0() * 12, haulTier: haulTier(pi),
     scanR: scanD ? scanD.r : 0, sigT: 0, ev: null, boost, seed, coop: opt.guest ? 'guest' : null,
   };
+  if (S.planet.landings <= 3 && !opt.guest) { RUN.o2 = RUN.o2max = L.o2 * 1.3; RUN.rookieO2 = true; }   // a bigger tank for your first three landings while you learn to head back
   if (p.trait === 'SPORE CLOUDS') for (let i = 0; i < 9; i++) RUN.spores.push({ x: R0() * map.GW, y: R0() * map.GH, r: 30 + R0() * 30, vx: (R0() - 0.5) * 8, vy: (R0() - 0.5) * 8 });
   w.onKill = e => onRunKill(e); w.onDeath = () => endRun('dead'); w.onProp = (pr, el) => onRunProp(pr, el);
   setupProps(RUN, RNG(seed + 77));
@@ -193,10 +196,11 @@ function startRun(pi, opt = {}) {
 }
 // ---------- first-landing training ----------
 const TUT = [
-  { k: 'blast', keys: ['WASD', 'CLICK'], t: 'AN ALIEN! MOVE WITH WASD, AIM WITH THE MOUSE, HOLD CLICK TO BLAST IT', tt: 'AN ALIEN! DRAG LEFT TO MOVE, TOUCH RIGHT TO AIM AND BLAST IT' },
-  { k: 'mine', keys: ['Q', 'CLICK'], t: 'NOW GET PAID. PRESS Q FOR YOUR DRILL, HOLD CLICK ON GLOWING ORE', tt: 'NOW GET PAID. TAP SWAP FOR YOUR DRILL, HOLD ON GLOWING ORE' },
-  { k: 'dash', keys: ['SPACE', 'F'], t: 'THEY ARE MAD NOW! GUN IS BACK. SPACE TO DASH THROUGH THEM, F FOR YOUR GADGET', tt: 'THEY ARE MAD NOW! GUN IS BACK. TAP BOOST TO DASH, GADGET TO BLOW THEM UP' },
-  { k: 'o2', keys: ['E'], t: 'YOUR O2 IS TICKING. GRAB MORE ORE, THEN PRESS E AT YOUR SHIP TO CASH IN', tt: 'YOUR O2 IS TICKING. GRAB MORE ORE, THEN TAP USE AT YOUR SHIP TO CASH IN' },
+  { k: 'blast', keys: ['WASD', 'CLICK'], t: 'WASD TO MOVE. HOLD CLICK TO SHOOT', tt: 'DRAG LEFT TO MOVE. TOUCH RIGHT TO SHOOT' },
+  { k: 'mine', keys: ['Q', 'CLICK'], t: 'Q FOR YOUR DRILL. HOLD CLICK ON GLOWING ORE', tt: 'TAP SWAP. HOLD ON GLOWING ORE' },
+  { k: 'dash', keys: ['SPACE'], t: 'MORE ALIENS! SPACE TO DASH', tt: 'MORE ALIENS! TAP BOOST TO DASH' },
+  { k: 'gadget', keys: ['F'], t: 'F THROWS YOUR GADGET', tt: 'TAP GADGET TO THROW IT' },
+  { k: 'o2', keys: ['E'], t: 'O2 IS DRAINING. PRESS E AT YOUR SHIP TO CASH IN', tt: 'O2 IS DRAINING. TAP USE AT YOUR SHIP TO CASH IN' },
 ];
 const TUT_CHEER = ['NICE!', 'BOOM!', 'CLEAN!', 'PRO MOVE!', 'NAILED IT!'];
 // drop a few aliens near the player for the training to use
@@ -209,18 +213,20 @@ function tutSpawn(R, n, weak) {
 }
 function tutTick(dt, inp) {
   const R = RUN, T = R.tut; if (!T || R.state !== 'play') return; const pl = R.w.player; T.t += dt;
-  if (T.doneT !== undefined) { T.doneT += dt; if (T.doneT > 0.8) { T.i++; T.t = 0; T.doneT = undefined; T.started = false; if (T.i >= TUT.length) { R.tut = null; S.tutorial.planet = true; dirty(); banner('TRAINING DONE! FILL YOUR CARGO, HUNT CRATES, FIND THE BOSS', COL.gold); } } return; }
+  if (T.doneT !== undefined) { T.doneT += dt; if (T.doneT > 0.8) { T.i++; T.t = 0; T.doneT = undefined; T.started = false; if (T.i >= TUT.length) { R.tut = null; S.tutorial.planet = true; dirty(); banner('TRAINING DONE! FILL YOUR CARGO, THEN CASH IN', COL.gold); } } return; }
   const k = TUT[T.i].k;
   if (!T.started) {
     T.started = true; T.k0 = R.kills;
     if (k === 'blast') tutSpawn(R, 1, true);
     if (k === 'dash') { if (pl.mode !== 'weapon') setSlot(pl, R.w, 0); tutSpawn(R, 3, true); SND.play('bossroar'); shake(3); }
+    if (k === 'gadget') { if (pl.mode !== 'weapon') setSlot(pl, R.w, 0); if (!R.w.ents.some(e => !e.dead && Math.hypot(e.x - pl.x, e.y - pl.y) < 160)) tutSpawn(R, 2, true); }
   }
   let ok = false;
   switch (k) {
     case 'blast': ok = R.kills > T.k0 || T.t > 20; break;
     case 'mine': ok = R.cargoN >= 2; break;
-    case 'dash': if (inp.boost) T.boosted = true; if (inp.gadget) T.gad = true; ok = (T.boosted && (T.gad || !S.eq.gadget || R.kills >= T.k0 + 2)) || T.t > 14; break;
+    case 'dash': ok = inp.boost || T.t > 12; break;
+    case 'gadget': ok = inp.gadget || !pl.G || T.t > 12; break;
     case 'o2': ok = T.t > 6; break;
   }
   if (ok) { T.doneT = 0; T.cheer = TUT_CHEER[T.i % TUT_CHEER.length]; SND.play('win'); R.w.fx.text(pl.x, pl.y - 32, T.cheer, COL.gold, { f: FB, sc: 2 }); shake(2); }
@@ -340,11 +346,13 @@ function finishRun() {
   const keys = Object.keys(R.cargo).map(Number).sort((a, b) => planetDef(b).ore[1] - planetDef(a).ore[1]);
   for (const k of keys) { const n = R.cargo[k]; if (!n) continue; const v = orePrice(planetDef(k).ore[1]) * (R.boost && R.boost.ore ? 1.5 : 1) * starterOre(k); const t = Math.round(n * v * L.oreMul); lines.push({ pi: k, n, v, t }); total += t; }
   const kc = Math.round(R.coins); total += kc;
+  const warm = warmTier(), warmC = warm && total > 0 ? Math.round(total * 0.02 * warm) : 0; total += warmC;
   earn(total); passXP((R.lost ? 50 : 120) + R.cargoN * 2); firstTime('land'); track('land', { p: R.pi, ore: R.cargoN, k: R.kills, lost: R.lost ? 1 : 0, s: Math.round(R.t) }); S.stats.ore += R.cargoN; S.stats.maxHaul = Math.max(S.stats.maxHaul, R.cargoN); S.stats.bestCombo = Math.max(S.stats.bestCombo, R.bestCombo);
   const xp = Math.round(R.xp + R.cargoN * 2 + 10); const lvBefore = S.lvl; addXP(xp);
   checkTitles(); dirty(); save();
   S.haulCrates = (S.haulCrates || []).concat(R.crates.map(c => poolSize(c.kind) > 0 ? c : { kind: 'galaxy', tier: c.tier })); save();
-  RES = { lines, kc, total, xp, lvUp: S.lvl - lvBefore, crates: R.crates.slice(), choices: R.choices, t: 0, shown: 0, acc: 0, pi: R.pi, lost: R.lost, mult: L.oreMul, combo: R.bestCombo, kills: R.kills };
+  if (S.planet.landings === 1 && !S.eq.pet) { const pid = Object.keys(S.inv).find(id => getDef(id).cat === 'p'); if (pid) { S.eq.pet = pid; dirty(); toast('YOUR PET BOT JOINS YOU NEXT LANDING', COL.cyan); } }
+  RES = { warm, warmC, lines, kc, total, xp, lvUp: S.lvl - lvBefore, crates: R.crates.slice(), choices: R.choices, t: 0, shown: 0, acc: 0, pi: R.pi, lost: R.lost, mult: L.oreMul, combo: R.bestCombo, kills: R.kills };
   setScene('results');
 }
 
@@ -370,7 +378,7 @@ function touchInput(pl, c, w) {
 }
 function runInput() {
   const pl = RUN.w.player; const c = RUN.cam;
-  if (TOUCH.size || IN.touch) { const t = touchInput(pl, c); if (t.use) IN.kp.add('KeyE'); return t; }
+  if (TOUCH.size || IN.touch) { const t = touchInput(pl, c, RUN.w); if (t.use) IN.kp.add('KeyE'); return t; }
   const slot = kp('Digit1') ? 0 : kp('Digit3') ? 2 : undefined;
   return {
     gadget: kp('KeyF') || kp('Digit2'),
@@ -413,9 +421,9 @@ function updateRun(dt) {
     // boss lair
     if (R.bossAvail && R.coop !== 'guest' && !w.boss && !R.bossBeaten && (Math.hypot(pl.x - map.lair.x, pl.y - map.lair.y) < 95 || (w.allies && w.allies.some(a => a && a.alive && Math.hypot(a.x - map.lair.x, a.y - map.lair.y) < 95)))) { spawnBoss(w, map.lair.x, map.lair.y); ptip('boss'); SND.play('bossroar'); SND.playSong('boss'); shake(6); banner(`${R.p.boss[0]}. HIT IT WHEN IT WINDS UP, PUNISH THE GLOWING CORE`, COL.coral); R.bossHit = false; }
     // spawns
-    R.spawnT -= dt * (R.tut ? (R.tut.i < 3 ? 0 : 0.4) : 1) * (R.coop === 'guest' ? 0 : R.coop === 'host' ? 1.6 : 1);
+    R.spawnT -= dt * (R.tut ? (R.tut.i < 4 ? 0 : 0.4) : 1) * (R.coop === 'guest' ? 0 : R.coop === 'host' ? 1.6 : 1);
     if (R.spawnT <= 0) {
-      R.spawnT = Math.max(0.65, (R.pi <= 2 ? 2.9 : 2.5) - R.t * 0.018) * (w.boss ? 1.8 : 1) / (1 + 0.35 * (w.hiP || 0));
+      R.spawnT = Math.max(0.65, (R.pi === 1 ? 3.4 : R.pi === 2 ? 2.9 : 2.5) - R.t * 0.018) * (w.boss ? 1.8 : 1) / (1 + 0.35 * (w.hiP || 0));
       if (w.ents.length < 42 + Math.round(14 * (w.hiP || 0))) {
         const ros = planetRoster(w.pi); const arch = R0() < 0.55 ? R0.pick(R.p.alien[2]) : R0.pick(ros); const n = (arch === 'swarm' ? 3 + R0.int(3) : arch === 'turret' || arch === 'healer' || arch === 'sniper' ? 1 : 1 + R0.int(R.t > 60 ? 3 : 2)) + (R0() < (w.hiP || 0) * 0.6 ? 1 : 0);
         const anc = w.allies && w.allies[0] && w.allies[0].alive && R0() < 0.5 ? w.allies[0] : pl;
@@ -748,6 +756,7 @@ function drawResults(dt) {
   });
   const kk = clamp((r.t - 0.4 - r.lines.length * step) / step, 0, 1);
   if (kk > 0) { text(`ALIENS (${r.kills})  BEST COMBO X${r.combo}`, 94, y, COL.ink, FB); text(fmt(r.kc * kk), 400, y, COL.gold, FB, 2); shownTotal += Math.round(r.kc * kk); y += 13; }
+  if (r.warmC && kk > 0) { text(`WARMED UP +${r.warm * 2}%`, 94, y, COL.gold, FB); text(fmt(r.warmC * kk), 400, y, COL.gold, FB, 2); shownTotal += Math.round(r.warmC * kk); y += 13; }
   if (r.mult > 1 && kk > 0) { text(`ORE VALUE BONUS X${r.mult.toFixed(2)} INCLUDED`, 94, y, COL.dim, FS); y += 10; }
   const nCr = r.crates.length;
   // haul crates showcase fills the space under the tally

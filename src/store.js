@@ -187,9 +187,37 @@ function drawStardustIcon(x, y, s = 1) {
   R(2, 2, 1, 1, '#ffffff'); R(3, 1, 1, 1, '#ffffff');
 }
 function drawSupporterBadge(x, y) { x = Math.floor(x); y = Math.floor(y); rect(x, y + 1, 7, 5, '#7a4a00'); rect(x + 1, y, 5, 7, '#7a4a00'); rect(x + 1, y + 1, 5, 5, COL.gold); px(x + 3, y + 2, '#fff6c2'); px(x + 2, y + 3, '#fff6c2'); px(x + 4, y + 3, '#fff6c2'); px(x + 3, y + 4, '#fff6c2'); }
+// the supporter showcase: a gold vault. Two ray wheels turning opposite ways, a glowing pedestal, rising gold dust, a light sweep
+function supporterScene(x, y, w, h) {
+  gbox(x, y, w, h, '#4a3008', '#0c0702', null);
+  ctx.save(); ctx.beginPath(); ctx.rect(x + 1, y + 1, w - 2, h - 2); ctx.clip();
+  const cx = x + 50, cy = y + 66;
+  { const g = ctx.createRadialGradient(cx, cy, 4, cx, cy, 110); g.addColorStop(0, 'rgba(255,214,102,0.55)'); g.addColorStop(0.45, 'rgba(252,163,17,0.18)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x, y, w, h); }
+  ctx.save(); ctx.globalAlpha = 0.16; ctx.fillStyle = '#ffd166'; for (let i = 0; i < 12; i++) { const a = T_NOW * 0.35 + i * TAU / 12; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a - 0.09) * 190, cy + Math.sin(a - 0.09) * 190); ctx.lineTo(cx + Math.cos(a + 0.09) * 190, cy + Math.sin(a + 0.09) * 190); ctx.fill(); } ctx.restore();
+  ctx.save(); ctx.globalAlpha = 0.10; ctx.fillStyle = '#fff6c2'; for (let i = 0; i < 8; i++) { const a = -T_NOW * 0.22 + i * TAU / 8; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a - 0.05) * 190, cy + Math.sin(a - 0.05) * 190); ctx.lineTo(cx + Math.cos(a + 0.05) * 190, cy + Math.sin(a + 0.05) * 190); ctx.fill(); } ctx.restore();
+  // a floor and a glowing pedestal
+  rect(x + 1, y + 118, w - 2, h - 119, 'rgba(20,12,2,0.7)'); for (let gx = x + 6; gx < x + w; gx += 14) rect(gx, y + 118, 1, h - 119, 'rgba(255,209,102,0.08)'); rect(x + 1, y + 118, w - 2, 1, 'rgba(255,209,102,0.35)');
+  for (let k = 3; k >= 0; k--) { ctx.globalAlpha = 0.18 + 0.1 * (3 - k) + 0.08 * Math.sin(T_NOW * 3); ellipse(cx, y + 117, 18 + k * 7, 4 + k * 2, k ? '#fca311' : '#fff2c2'); } ctx.globalAlpha = 1;
+  // gold dust drifting up
+  for (let i = 0; i < 26; i++) { const sp = 8 + (i % 4) * 5, px0 = x + 6 + ((i * 53) % (w - 12)) + Math.sin(T_NOW * 1.3 + i) * 3, py0 = y + h - ((T_NOW * sp + i * 37) % (h + 10)); const tw = 0.35 + 0.65 * ((Math.sin(T_NOW * 4 + i * 1.7) + 1) / 2); ctx.globalAlpha = tw; px(px0, py0, i % 5 ? '#ffd166' : '#ffffff'); if (i % 6 === 0) { px(px0 - 1, py0, '#fca311'); px(px0 + 1, py0, '#fca311'); px(px0, py0 - 1, '#fca311'); px(px0, py0 + 1, '#fca311'); } } ctx.globalAlpha = 1;
+  // a slow diagonal light sweep
+  const sw = (T_NOW * 60) % (w + 200) - 100; ctx.globalAlpha = 0.10; ctx.fillStyle = '#fff6c2'; ctx.beginPath(); ctx.moveTo(x + sw, y); ctx.lineTo(x + sw + 26, y); ctx.lineTo(x + sw - 34, y + h); ctx.lineTo(x + sw - 60, y + h); ctx.fill(); ctx.globalAlpha = 1;
+  ctx.restore();
+  // a double gold frame with corner studs
+  ctx.strokeStyle = '#ffd166'; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); ctx.strokeStyle = 'rgba(255,209,102,0.35)'; ctx.strokeRect(x + 2.5, y + 2.5, w - 5, h - 5);
+  for (const [sx, sy] of [[x + 1, y + 1], [x + w - 5, y + 1], [x + 1, y + h - 5], [x + w - 5, y + h - 5]]) { rect(sx, sy, 4, 4, '#ffd166'); px(sx + 1, sy + 1, '#ffffff'); }
+}
+// a little pixel crown
+function drawCrown(x, y) {
+  x = Math.floor(x); y = Math.floor(y); const G = '#ffd166', D = '#b8740a', L = '#fff6c2';
+  rect(x, y + 4, 18, 6, D); rect(x + 1, y + 4, 16, 5, G); rect(x, y, 2, 5, G); rect(x + 8, y - 2, 2, 7, G); rect(x + 16, y, 2, 5, G); rect(x + 4, y + 2, 2, 3, G); rect(x + 12, y + 2, 2, 3, G);
+  px(x + 8, y - 3, L); px(x, y - 1, L); px(x + 17, y - 1, L); rect(x + 4, y + 6, 2, 2, '#e66767'); rect(x + 8, y + 6, 2, 2, '#4ee8ff'); rect(x + 12, y + 6, 2, 2, '#7dffb0'); rect(x + 1, y + 9, 16, 1, D);
+  if (Math.floor(T_NOW * 2) % 3 === 0) { px(x + 3, y + 5, '#ffffff'); }
+}
 function drawSupporterPlate(x, y) {
   const s = 'SUPPORTER', w = textW(s, FS) + 14, sh = Math.floor(T_NOW * 40) % (w + 30) - 15;
-  panel(x, y, w, 10, { bg: '#3a2a10', bd: COL.gold, flat: true }); drawSupporterBadge(x + 2, y + 1); text(s, x + 11, y + 2, COL.gold, FS);
+  gbox(x, y, w, 10, '#7a5210', '#2a1804', COL.gold); drawSupporterBadge(x + 2, y + 1); text(s, x + 11, y + 2, '#fff2c2', FS);
+  { const k = Math.floor(T_NOW * 3) % 6; if (k < 2) { px(x + (k ? w - 2 : 1), y + 1, '#ffffff'); } }
   ctx.save(); ctx.beginPath(); ctx.rect(x + 1, y + 1, w - 2, 8); ctx.clip(); ctx.globalAlpha = 0.35; for (let i = 0; i < 3; i++) rect(x + sh + i, y + 1, 1, 8, '#fff'); ctx.restore(); ctx.globalAlpha = 1;
 }
 const rcolOf = r => r === 6 ? rainbow(T_NOW * 1.4) : RAR[r].c;
@@ -300,7 +328,7 @@ function panelStore(st) {
     gbox(x, y, tw, 15, sel ? '#3a2a6e' : hov ? '#241a4a' : '#160f30', sel ? '#221548' : '#0e0a20', sel ? c : '#3a2f66');
     if (sel) rect(x + 2, y + 13, tw - 4, 1, c);
     storeTabIcon(ic, x + 7, y + 4, sel ? c : '#8a80b8'); text(n, x + 18, y + 5, sel ? '#ffffff' : '#a59cd0', FS);
-    if (i === 0 && storeClaimable() + missionsReady() > 0 && Math.floor(T_NOW * 3) % 2) { rect(x + tw - 9, y - 2, 7, 7, COL.coral); text('!', x + tw - 6, y - 1, '#fff', FS, 1); }
+    if (i === 0) { const nc = storeClaimable() + missionsReady(); if (nc > 0) { const lb = nc > 99 ? '99+' : '' + nc, bw = textW(lb, FS) + 6, bob = Math.round(Math.abs(Math.sin(T_NOW * 4)) * -2); panel(x + tw - bw + 2, y - 4 + bob, bw, 9, { bg: '#ffd166', bd: '#fff6c2', flat: true }); text(lb, x + tw - bw / 2 + 2, y - 2 + bob, '#2a1400', FS, 1); } }
     if (hov) { IN.cursor = 'pointer'; if (IN.pr) { st.tab = i; SND.play('click'); STORE.confirm = null; IN.pr = false; } }
   });
   if (NET.st !== 'on') {
@@ -350,12 +378,20 @@ function storePass(st) {
   if (tier >= PASS.tiers) { text('BONUS STARS', bx + 22, by - 10, '#c9a6ff', FS); text(`${passBonus()} / ${PASS.bonusMax}`, bx + 22, by - 1, '#ffffff', FS); text(`${fmt(into % PASS.bonusXp)}/${fmt(PASS.bonusXp)} XP`, bx + 22, by + 8, '#8aa8c8', FS); }
   else { text('NEXT TIER', bx + 22, by - 10, '#9fe7ff', FS); text(`${fmt(into)} / ${fmt(PASS.xp)}`, bx + 22, by - 1, '#ffffff', FS); text('PLAY TO EARN XP', bx + 22, by + 8, '#8aa8c8', FS); }
   // the track
-  const tx = 156, ty = 49, tw = W - 12 - tx, cw2 = 38, gap = 4, cols = PASS.tiers + 1;
-  const maxS = Math.max(0, cols * (cw2 + gap) - tw + 26);
-  if (st.pScroll === undefined) st.pScroll = clamp((Math.max(1, tier) - 3) * (cw2 + gap), 0, maxS);
-  if (inBox(tx, ty, tw, 96)) st.pScroll = clamp(st.pScroll + IN.wheel * 45, 0, maxS);
-  if (IN.down && inBox(tx, ty, tw, 96)) st.pScroll = clamp(st.pScroll - (IN.mx - (st.plmx ?? IN.mx)), 0, maxS); st.plmx = IN.down ? IN.mx : undefined;
-  gbox(tx, ty, tw, 96, '#0e0b26', '#0a0819', '#3a2f66');
+  const tx = 156, ty = 49, tw = W - 12 - tx, cw2 = 38, gap = 4, cols = PASS.tiers + 1, TH = 106, step = cw2 + gap;
+  const maxS = Math.max(0, cols * step - tw + 26);
+  // scrolling: the wheel anywhere over the pass, arrow keys, drag, the arrows and bar under the track, or NOW. It glides to where you aim
+  const firstReady = () => { const f0 = claimedSet('f'), p0 = claimedSet('p'); for (let i = 1; i <= tier; i++) if (!f0.has(i) || (owns && !p0.has(i))) return i; return 0; };
+  const aimAt = n => clamp((Math.max(1, n) - 3) * step, 0, maxS);
+  if (st.pScroll === undefined) { st.pScroll = aimAt(firstReady() || tier); st.pTo = st.pScroll; }
+  if (st.pTo === undefined) st.pTo = st.pScroll;
+  if (inBox(tx, ty, tw, TH + 48) && IN.wheel) st.pTo = clamp(st.pTo + IN.wheel * step * 2, 0, maxS);
+  if (kp('ArrowRight') || kp('KeyD')) st.pTo = clamp(st.pTo + step * 4, 0, maxS); if (kp('ArrowLeft') || kp('KeyA')) st.pTo = clamp(st.pTo - step * 4, 0, maxS);
+  if (IN.down && inBox(tx, ty, tw, 94) && st.pDrag === undefined) st.pDrag = 'track';
+  if (!IN.down) st.pDrag = undefined;
+  if (st.pDrag === 'track' && st.plmx !== undefined) { st.pTo = st.pScroll = clamp(st.pScroll - (IN.mx - st.plmx), 0, maxS); } st.plmx = IN.down ? IN.mx : undefined;
+  st.pScroll += (st.pTo - st.pScroll) * Math.min(1, (1 / 60) * 14); if (Math.abs(st.pTo - st.pScroll) < 0.5) st.pScroll = st.pTo;
+  gbox(tx, ty, tw, TH, '#0e0b26', '#0a0819', '#3a2f66');
   // row labels
   const rl = (y, t, c, lock) => { gbox(tx + 1, y, 22, 34, '#1a1440', '#100c28'); ctx.save(); ctx.translate(tx + 12, y + 17); ctx.rotate(-Math.PI / 2); text(t, 0, -2, c, FS, 1); ctx.restore(); if (lock) { rect(tx + 9, y + 26, 7, 5, '#8a80b8'); ring(tx + 12, y + 25, 2, '#8a80b8'); } };
   rl(ty + 18, 'FREE', '#dfe4f5'); rl(ty + 57, 'PASS', '#ffd166', !owns);
@@ -385,16 +421,33 @@ function storePass(st) {
       const top = got ? '#14301f' : wpn ? '#3a1a2a' : track === 'p' ? '#1d2a50' : '#1a1838', bot = got ? '#0a1a10' : wpn ? '#1a0a14' : track === 'p' ? '#0e1430' : '#0f0e24';
       gbox(x, y, cw2, 34, top, bot, ready ? COL.gold : got ? '#7dffb0' : r >= 0 ? rcolOf(r) : track === 'p' ? '#3a4f8a' : '#34305a');
       if (wpn && !got) { ctx.globalAlpha = 0.25 + 0.15 * Math.sin(T_NOW * 3 + i); rect(x + 1, y + 1, cw2 - 2, 32, rcolOf(r)); ctx.globalAlpha = 1; }
+      if (ready) { ctx.save(); ctx.beginPath(); ctx.rect(x + 1, y + 1, cw2 - 2, 32); ctx.clip(); rays(x + cw2 / 2, y + 15, 34, '#ffd166', 0.28); ctx.restore(); }
       drawReward(rw, x, y, cw2, 34, (!reached && !got) || locked);
+      if (ready) {
+        for (let k = 0; k < 3; k++) { const ph = T_NOW * 2.2 + k * 2.1 + i, tw2 = (Math.sin(ph) + 1) / 2; if (tw2 > 0.55) { const sx = x + 4 + ((i * 13 + k * 11) % (cw2 - 8)), sy = y + 3 + ((i * 7 + k * 9) % 20); ctx.globalAlpha = tw2; px(sx, sy, '#ffffff'); px(sx - 1, sy, '#ffd166'); px(sx + 1, sy, '#ffd166'); px(sx, sy - 1, '#ffd166'); px(sx, sy + 1, '#ffd166'); ctx.globalAlpha = 1; } }
+        const by2 = y + 25 - Math.round(Math.abs(Math.sin(T_NOW * 5 + i * 0.7)) * 2); panel(x + 5, by2, cw2 - 10, 9, { bg: '#ffd166', bd: '#fff6c2', flat: true }); text('CLAIM', x + cw2 / 2, by2 + 2, '#2a1400', FS, 1);
+      }
       if (got) { rect(x + cw2 - 10, y + 24, 9, 9, '#0a1a10'); line(x + cw2 - 8, y + 28, x + cw2 - 6, y + 30, '#7dffb0'); line(x + cw2 - 6, y + 30, x + cw2 - 2, y + 25, '#7dffb0'); }
       else if (locked) { rect(x + cw2 - 9, y + 26, 7, 5, '#8a80b8'); ring(x + cw2 - 6, y + 25, 2, '#8a80b8'); }
-      if (inBox(x, y, cw2, 34) && inBox(x0, ty, tw - 27, 96)) { hover = { rw, n, track, got, locked, reached, ready }; if (ready) { IN.cursor = 'pointer'; if (IN.rl && Math.abs(IN.dragX) < 5 && !NET.act) passClaim(n, track); } }
+      if (inBox(x, y, cw2, 34) && inBox(x0, ty, tw - 27, 94)) { hover = { rw, n, track, got, locked, reached, ready }; if (ready) { IN.cursor = 'pointer'; if (IN.rl && Math.abs(IN.dragX) < 5 && !NET.act) passClaim(n, track); } }
     }
   }
   ctx.restore();
-  if (maxS > 0) { rect(x0, ty + 93, tw - 30, 1, '#241e4a'); rect(x0 + (tw - 70) * (st.pScroll / maxS), ty + 93, 40, 1, '#9fe7ff'); }
+  // nav row: < [ bar ] NOW >
+  if (maxS > 0) {
+    const ny = ty + 95, lb = x0, rb = tx + tw - 17, nowW = 30, bx0 = lb + 18, bw0 = rb - nowW - 4 - bx0, thumb = Math.max(24, bw0 * (tw - 27) / (cols * step));
+    if (button(lb, ny, 16, 9, '<', { font: FS, kind: 'def', disabled: st.pTo <= 0 })) st.pTo = clamp(st.pTo - step * 4, 0, maxS);
+    if (button(rb, ny, 16, 9, '>', { font: FS, kind: 'def', disabled: st.pTo >= maxS })) st.pTo = clamp(st.pTo + step * 4, 0, maxS);
+    const nr = firstReady(); if (button(rb - nowW - 2, ny, nowW, 9, nr ? 'CLAIM' : 'NOW', { font: FS, kind: nr ? 'primary' : 'blue', tip: nr ? 'JUMP TO YOUR FIRST REWARD TO CLAIM' : 'JUMP TO YOUR TIER' })) st.pTo = aimAt(nr || tier);
+    rect(bx0, ny + 3, bw0, 3, '#241e4a');
+    const tx0 = bx0 + (bw0 - thumb) * (st.pScroll / maxS), hovT = inBox(bx0, ny, bw0, 9);
+    rect(tx0, ny + 2, thumb, 5, hovT || st.pDrag === 'bar' ? '#c9f3ff' : '#9fe7ff');
+    if (IN.down && hovT && st.pDrag === undefined) st.pDrag = 'bar';
+    if (st.pDrag === 'bar') { IN.cursor = 'grabbing'; st.pTo = st.pScroll = clamp((IN.mx - bx0 - thumb / 2) / Math.max(1, bw0 - thumb) * maxS, 0, maxS); }
+    else if (hovT) IN.cursor = 'pointer';
+  }
   // details of whatever you point at
-  const dy = ty + 100; gbox(tx, dy, tw, 44, '#161236', '#0c0a20', '#3a2f66');
+  const dy = ty + TH + 4; gbox(tx, dy, tw, 44, '#161236', '#0c0a20', '#3a2f66');
   if (hover && hover.bonus) { drawStardustIcon(tx + 10, dy + 15, 2); text('BONUS STARS', tx + 34, dy + 7, '#c9a6ff', FB); text(`AFTER TIER 30, EVERY ${fmt(PASS.bonusXp)} XP GIVES ${PASS.bonusSd} STARDUST. UP TO ${PASS.bonusMax}`, tx + 34, dy + 19, '#bfb6e6', FS); text('ON BOTH THE FREE AND PAID PASS', tx + 34, dy + 28, '#8a80b8', FS); }
   else if (hover) {
     const rw = hover.rw, d = rw.it ? getDef(rw.it) : null;
@@ -420,15 +473,27 @@ function storePass(st) {
   // buy, or claim
   const cy = dy + 48;
   if (!owns) {
-    const pulse = 0.5 + 0.5 * Math.sin(T_NOW * 3);
-    ctx.globalAlpha = 0.25 + 0.2 * pulse; rect(tx - 1, cy - 1, tw + 2, 46, '#ffd166'); ctx.globalAlpha = 1;
-    gbox(tx, cy, tw, 44, '#4a2a08', '#241404', '#ffd166');
-    textO('UNLOCK THE PAID PASS', tx + 8, cy + 6, '#ffe9a8', '#000', FB);
-    text('TIERS YOU ALREADY REACHED UNLOCK RIGHT AWAY', tx + 8, cy + 19, '#e8c890', FS);
-    text('4 XMAS WEAPONS, RUDOLPH, SNOW GLOBE, 12 COSMETICS', tx + 8, cy + 29, '#ffffff', FS);
-    const k1 = 'pass$', k2 = 'passsd';
-    if (pricePill(tx + tw - 96, cy + 6, 88, confirming(k1) ? 'CLICK AGAIN' : 'BUY ' + PASS.usd, live && !NET.act, false) && live) { if (confirmBuy(k1)) checkout('pass_' + PASS.id); }
-    if (pricePill(tx + tw - 96, cy + 25, 88, confirming(k2) ? 'SURE?' : '' + PASS.sd, live && stardust() >= PASS.sd && !NET.act, true) && live) { if (stardust() < PASS.sd) { toast('NOT ENOUGH STARDUST', COL.coral); st.tab = 3; } else if (confirmBuy(k2)) storeSpend('pass', PASS.id, 'PASS UNLOCKED! CLAIM YOUR TIERS'); }
+    // the buy box: what you'd get right now, the best prizes, and a big shiny button. Real numbers only, no fake timers
+    const pulse = 0.5 + 0.5 * Math.sin(T_NOW * 3), earned = live ? tier : 0;
+    ctx.globalAlpha = 0.25 + 0.25 * pulse; rect(tx - 2, cy - 2, tw + 4, 48, '#ffd166'); ctx.globalAlpha = 1;
+    gbox(tx, cy, tw, 44, '#5a3408', '#1e1004', '#ffd166');
+    ctx.save(); ctx.beginPath(); ctx.rect(tx + 1, cy + 1, tw - 2, 42); ctx.clip();
+    rays(tx + tw - 50, cy + 22, 90, '#ffd166', 0.10);
+    const sw = (T_NOW * 140) % (tw + 160) - 80; ctx.globalAlpha = 0.16; for (let k = 0; k < 14; k++) rect(tx + sw + k, cy + 1, 1, 42, '#fff6c2'); ctx.globalAlpha = 1;   // a light sweep across the box
+    ctx.restore();
+    textO(earned > 0 ? `${earned} PASS REWARD${earned > 1 ? 'S' : ''} ALREADY EARNED` : 'UNLOCK THE PAID PASS', tx + 8, cy + 5, '#fff2c2', '#000', FB);
+    text(earned > 0 ? 'UNLOCK THE PASS AND CLAIM THEM RIGHT NOW' : 'EVERY TIER YOU REACH PAYS OUT TWICE', tx + 8, cy + 18, '#f0d39a', FS);
+    // the headline prizes, cycling a little glow
+    const show = ['w|launcher|6017', 'w|throwing|6016', 'w|rifle|6014', 'w|blaster|6012', 'p|fox|6015', 'k|ship|6007'];
+    show.forEach((id, k) => { const ix = tx + 8 + k * 30, on = Math.floor(T_NOW * 1.5) % show.length === k, d = getDef(id); gbox(ix, cy + 27, 28, 14, on ? '#5a3a10' : '#2a1806', '#140a02', on ? rcolOf(d.r) : '#7a5a20'); drawItemIn(id, ix + 1, cy + 28, 26, 12, { maxSc: 1 }); if (inBox(ix, cy + 27, 28, 14)) TIP.set({ item: id }); });
+    const k1 = 'pass$', k2 = 'passsd', bxx = tx + tw - 100, ok = live && !NET.act, hov = inBox(bxx, cy + 5, 92, 20), bob = ok ? Math.round(Math.sin(T_NOW * 4)) : 0;
+    // the big button
+    gbox(bxx, cy + 5 + bob, 92, 20, ok ? (hov ? '#fff0a8' : '#ffd166') : '#3a3350', ok ? (hov ? '#f8a020' : '#e07a00') : '#26203a', ok ? '#ffffff' : '#4a4266');
+    if (ok) { ctx.save(); ctx.beginPath(); ctx.rect(bxx + 1, cy + 6 + bob, 90, 18); ctx.clip(); const s2 = (T_NOW * 90) % 160 - 30; ctx.globalAlpha = 0.5; for (let k = 0; k < 6; k++) rect(bxx + s2 + k, cy + 6 + bob, 1, 18, '#ffffff'); ctx.restore(); ctx.globalAlpha = 1; }
+    textO(confirming(k1) ? 'CLICK AGAIN' : 'BUY ' + PASS.usd, bxx + 46, cy + 11 + bob, ok ? '#2a1400' : '#8a80a8', ok ? '#ffe9a8' : '#26203a', FB, 1);
+    if (hov && ok) IN.cursor = 'pointer';
+    if (hov && IN.pr && ok) { if (confirmBuy(k1)) checkout('pass_' + PASS.id); }
+    if (pricePill(bxx + 10, cy + 29, 72, confirming(k2) ? 'SURE?' : 'OR ' + PASS.sd, live && stardust() >= PASS.sd && !NET.act, true) && live) { if (stardust() < PASS.sd) { toast('NOT ENOUGH STARDUST', COL.coral); st.tab = 3; } else if (confirmBuy(k2)) storeSpend('pass', PASS.id, 'PASS UNLOCKED! CLAIM YOUR TIERS'); }
   } else {
     const n = storeClaimable();
     gbox(tx, cy, tw, 44, n ? '#3a2a08' : '#0f2a1a', n ? '#1e1404' : '#081a10', n ? '#ffd166' : '#7dffb0');
@@ -544,8 +609,9 @@ function storeDust(st) {
 function storeSupporter(st) {
   textO('SUPPORTER NAMEPLATE', 12, 50, '#ffd166', '#000', FB); text('A ONE-TIME THANK YOU THAT KEEPS THE SERVERS RUNNING AND NEW PLANETS COMING', 12, 61, '#c8b890', FS);
   const x = 12, y = 72, w = 228, h = 150;
-  gbox(x, y, w, h, '#3a2a10', '#120c04', '#ffd166'); ctx.save(); ctx.beginPath(); ctx.rect(x + 1, y + 1, w - 2, h - 2); ctx.clip(); rays(x + 50, y + 70, 70, '#ffd166', 0.12); ctx.restore();
+  supporterScene(x, y, w, h);
   shadow(x + 50, y + 116, 22, 5, 0.5); ctx.drawImage(astroSprite(S.eq, 0, 0), x + 20, y + 20, 60, 96);
+  drawCrown(x + 41, y + 26 + Math.round(Math.sin(T_NOW * 2.2) * 2));
   textO(S.name || 'YOU', x + 96, y + 26, '#ffffff', '#000', FB, 0, 2); drawSupporterPlate(x + 96, y + 46);
   text('IN THE ARENA:', x + 96, y + 70, '#c8b890', FS);
   const nm = S.name || 'YOU', tw = textW(nm, FS) + 4; panel(x + 96, y + 80, tw + 2, 9, { bg: '#3a2a10', bd: COL.gold, flat: true }); text(nm, x + 97 + tw / 2, y + 82, COL.gold, FS, 1);

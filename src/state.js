@@ -23,7 +23,8 @@ function newState() {
   const kit = [firstOf('w', 'blaster'), firstOf('t', 'tool', n => n % 2 === 0), firstOf('a', 'helmet'), firstOf('a', 'chest'), firstOf('a', 'boots'), firstOf('a', 'jetpack'), firstOf('a', 'o2'),
   firstOf('s', 'engine'), firstOf('s', 'hull'), firstOf('s', 'cargo'), firstOf('s', 'scanner'), firstOf('s', 'shield'), firstOf('g', 'blackhole'), firstOf('p', 'bot')];
   st.gift2 = 1;
-  for (const id of kit) { st.inv[id] = { l: 1, p: 0, t: Date.now() }; st.eq[slotOf(getDef(id))] = id; }
+  // the starter pet sits in the locker during training (one less thing on screen); it joins you after your first landing
+  for (const id of kit) { st.inv[id] = { l: 1, p: 0, t: Date.now() }; if (getDef(id).cat !== 'p') st.eq[slotOf(getDef(id))] = id; }
   for (const id of kit) markSeen(st, getDef(id));
   return st;
 }
@@ -106,14 +107,17 @@ function pullLabels(id, tier = 0) {
   }
   if (!inv) for (const pg of (PAGE_OF[id] || [])) if (!S.pages[pg.id] && pg.ids.every(x => x === id || owned(x))) { L.push('SET COMPLETE'); break; }
   if (d.cat === 'w' && interactionKeys(d).some(k => !S.seen[k])) L.push('NEW INTERACTION');
+  if (inv && inv.l < 10 && inv.p + 1 < inv.l) L.push(`+1 COPY ${inv.p + 1}/${inv.l}`);   // a duplicate always counts toward the next level, so say so
   return L;
 }
 const LABEL_COL = { 'NEW': COL.mint, 'LEVEL UP': COL.cyan, 'GRADE UP': '#7dffb0', 'UPGRADE': COL.gold, 'SET COMPLETE': COL.magenta, 'NEW INTERACTION': COL.orange, 'RESEARCH MATERIAL': COL.dim };
+const labelCol = l => LABEL_COL[l] || (l.startsWith('+1 COPY') ? COL.blueL : COL.gold);
 const PAGE_OF = {};
 function indexPages() { for (const pg of PAGES) for (const id of pg.ids) (PAGE_OF[id] = PAGE_OF[id] || []).push(pg); }
 const pageOwned = pg => pg.ids.filter(owned).length;
 const pageDone = pg => pageOwned(pg) === pg.ids.length;
-const finisherOk = pg => { const o = pageOwned(pg); return o < pg.ids.length && o >= Math.ceil(pg.ids.length * 0.6); };
+const FINISH_MAX_R = 4;   // finishers top out at legendary
+const finisherOk = pg => { const o = pageOwned(pg); return o < pg.ids.length && o >= Math.ceil(pg.ids.length * 0.6) && pg.ids.some(id => !owned(id) && getDef(id).r <= FINISH_MAX_R); };
 
 // ---------- bonuses & loadout ----------
 function setCounts() {
@@ -139,7 +143,7 @@ function shipRating() {
 function bossGate(n) { return n > 1 && n > S.planet.reached && !S.planet.bosses[n - 1] ? planetDef(n - 1) : null; }
 function canWarp(n) { return n <= S.planet.reached || (shipRating() >= PLANET_REQ(n) && !bossGate(n)); }
 function frontierMul() { return Math.pow(1.15, Math.max(0, S.planet.reached - 1)); } // every planet you reach makes all your weapons stronger
-function luckPct() { return S.skills.luck * 3 + S.nova.perks.luck * 2 + bonuses().luck; }
+function luckPct() { return S.skills.luck * 3 + S.nova.perks.luck * 2 + bonuses().luck + (typeof WARM !== 'undefined' ? WARM.tier : 0); }
 function loadout() {
   const B = bonuses(), e = S.eq, st = id => id ? aStats(getDef(id), effL(id)) : {};
   const helm = st(e.helmet), chest = st(e.chest), boots = st(e.boots), jet = st(e.jetpack), o2 = st(e.o2), hull = st(e.hull), cargo = st(e.cargo), scan = st(e.scanner), shield = st(e.shield), tool = st(e.tool);
@@ -184,23 +188,35 @@ function poolFor(kind) {
   if (kind.startsWith('class:')) return POOLS[kind];
   if (kind.startsWith('salvage:')) { ensureSalvagePool(+kind.split(':')[1]); return POOLS[kind]; }
   if (kind.startsWith('boss:')) { ensureBossPool(+kind.split(':')[1]); return POOLS[kind]; }
-  if (kind.startsWith('finisher:')) { const pg = PAGES.find(p => p.id === kind.slice(9)); const pool = [[], [], [], [], [], [], []]; if (pg) for (const id of pg.ids) if (!owned(id)) pool[getDef(id).r].push(id); return pool; }
+  // a set finisher holds your missing pieces up to legendary. Mythics and cosmics on a page still come from regular crates
+  if (kind.startsWith('finisher:')) { const pg = PAGES.find(p => p.id === kind.slice(9)); const pool = [[], [], [], [], [], [], []]; if (pg) for (const id of pg.ids) if (!owned(id) && getDef(id).r < FINISH_MAX_R + 1) pool[getDef(id).r].push(id); return pool; }
   return POOLS.galaxy;
 }
 function tierUnlocked(t) { const u = TIERS[t].unlock; return u === 'nova' ? S.nova.count > 0 : S.planet.reached >= u; }
 function oddsFor(kind, tier, extraLuck = 0) {
   const pool = poolFor(kind); let o = TIERS[tier].odds.slice();
-  if (kind.startsWith('finisher:')) { return pool.map(p => p.length ? 100 * p.length / pool.reduce((a, b) => a + b.length, 0) : 0); }
-  const f = (luckPct() + extraLuck) / 100;
+  // finishers use the tier's odds too (they used to be one equal share per missing piece, so a page missing a cosmic handed it out ~1 in 4)
+  const f = kind.startsWith('finisher:') ? 0 : (luckPct() + extraLuck) / 100;
   if (f > 0) { const n = o.slice(); for (let k = 0; k < 7; k++) n[k] = o[k] * (k < 6 ? 1 - (k === 5 ? f * 0.1 : f) : 1) + (k > 0 ? o[k - 1] * (k === 6 ? f * 0.1 : f) : 0); o = n; }
-  for (let k = 0; k < 7; k++) if (!pool[k].length) o[k] = 0;
+  // the odds of rarities this crate can't roll go to the ones it can, but only up to legendary: mythic and cosmic keep
+  // their normal odds. Before, the leftover was spread over everything, so a 'rare or better' boss crate rolled cosmics 12x as often
+  let gone = 0; for (let k = 0; k < 7; k++) if (!pool[k].length) { gone += o[k]; o[k] = 0; }
+  if (gone > 0) {
+    let base = 0; for (let k = 0; k <= 4; k++) base += o[k];
+    const lo = base > 0 ? 4 : 6; if (base <= 0) for (let k = 0; k <= 6; k++) base += o[k];
+    if (base > 0) for (let k = 0; k <= lo; k++) o[k] += gone * o[k] / base;
+  }
   const s = o.reduce((a, b) => a + b, 0) || 1; return o.map(v => v / s * 100);
 }
 function rollRarity(odds) { let v = R0() * 100; for (let k = 0; k < 7; k++) { v -= odds[k]; if (v <= 0 && odds[k] > 0) return k; } for (let k = 6; k >= 0; k--) if (odds[k] > 0) return k; return 0; }
 function rollCrate(kind, tier, opt = {}) {
   const pool = poolFor(kind); const odds = oddsFor(kind, tier);
   let r = rollRarity(odds);
-  if (S.firstOpen && !opt.noFirst) { if (r < 2) { r = pool[2].length ? 2 : r; } S.firstOpen = false; }
+  if (S.firstOpen && !opt.noFirst) {
+    if (r < 2) { r = pool[2].length ? 2 : r; } S.firstOpen = false;
+    // your first gun is always a blaster: point, hold click, it shoots. Snipers, mines and drones come later
+    if (kind === 'weapon') { const bl = (pool[r] || []).filter(id => subOfId(id) === 'blaster' && !isDream(id)); if (bl.length) return bl[R0.int(bl.length)]; }
+  }
   if (opt.minR !== undefined && r < opt.minR && pool[opt.minR] && pool[opt.minR].length) r = opt.minR;
   const arr = pool[r]; const dr = dreamsIn(arr); if (dr.length && R0() < 0.12) return dr[R0.int(dr.length)];
   return arr[R0.int(arr.length)];
