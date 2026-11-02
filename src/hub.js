@@ -88,7 +88,7 @@ function navBadge(id) {
     case 'hangar': { const n = freshCount('hangar'); return n ? { t: n + ' NEW', c: COL.pink, pulse: true } : { t: '' + shipRating(), c: COL.blueL, quiet: true }; }
     case 'locker': { const n = freshCount('locker'); return n ? { t: n + ' NEW', c: COL.pink, pulse: true } : null; }
     case 'collection': { const n = PAGES.filter(pg => pageDone(pg) && !S.pages[pg.id]).length; return n ? { t: n + ' REWARD' + (n > 1 ? 'S' : ''), c: COL.pink } : null; }
-    case 'workshop': { const ready = CLASSES.some(c => { const m = S.mast[c]; return m && m.c < MAST_STEPS.length && m.k >= MAST_STEPS[Math.min(m.c, MAST_STEPS.length - 1)]; }) || Object.values(S.bp || {}).some(Boolean) || Object.keys(S.inv).some(id => { const d = getDef(id); return d.cat === 'w' && d.r <= 2 && !d.evo && d.o.t !== 'art' && !owned('e|' + id) && (S.ikills[id] || 0) >= EVO_NEED[d.r]; }); return ready ? { t: 'READY', c: COL.pink } : null; }
+    case 'workshop': { const ready = CLASSES.some(c => S.mast[c] && mastOf(c).ready) || Object.values(S.bp || {}).some(Boolean) || Object.keys(S.inv).some(id => { const d = getDef(id); return d.cat === 'w' && d.r <= 2 && !d.evo && d.o.t !== 'art' && !owned('e|' + id) && (S.ikills[id] || 0) >= EVO_NEED[d.r]; }); return ready ? { t: 'READY', c: COL.pink } : null; }
     case 'profile': return S.sp ? { t: S.sp + ' PT' + (S.sp > 1 ? 'S' : ''), c: COL.pink } : null;
     case 'mining': { let a = 0; for (const k in S.miners.acc) a += S.miners.acc[k]; return a >= 1 ? { t: fmt(a), c: COL.gold } : null; }
   }
@@ -276,12 +276,12 @@ function panelFrame(title, color = COL.gold, coins = false, help) {
 function drawPanel() {
   if (!HUB.choice) unblock();
   const p = HUB.panel, st = HUB.ps[p];
-  if (p === 'locker') return panelLocker(st);
-  if (p === 'hangar') return panelHangar(st);
+  if (p === 'locker') { panelLocker(st); return fuseUnmask(st); }
+  if (p === 'hangar') { panelHangar(st); return fuseUnmask(st); }
   if (p === 'collection') return panelCollection(st);
   if (p === 'workshop') return panelWorkshop(st);
   if (p === 'profile') return panelProfile(st);
-  if (p === 'mining') return panelMining(st);
+  if (p === 'mining') { panelMining(st); return fuseUnmask(st); }
   if (p === 'social') return panelSocial(st);
   if (p === 'arena') return panelArena(st);
   if (p === 'daily') return panelDaily(st);
@@ -410,7 +410,18 @@ function fusePick(st, c) {
   else if (st.pick.length >= fuseNeed(r)) { SND.play('deny'); toast(`${fuseNeed(r)} IS ENOUGH. HIT FUSE!`, COL.coral); }
   else { st.pick.push(c); st.autoArm = null; SND.play('click'); }
 }
+// while a fuse result is up, nothing behind it reacts to the mouse; the reveal gets the real input back.
+// After NICE, the panel stays deaf until the mouse button comes back up, so the same click can't land on the item underneath.
+function fuseMask(st) {
+  if (st.fuseGuard && !IN.down && !IN.pr) st.fuseGuard = false;
+  if (!st.fuseRes && !st.fuseGuard) { st.held = null; return; }
+  st.held = { mx: IN.mx, my: IN.my, pr: IN.pr, down: IN.down, wheel: IN.wheel, kp: new Set(IN.kp) };
+  IN.mx = -999; IN.my = -999; IN.pr = false; IN.down = false; IN.wheel = 0; IN.kp.clear();
+}
+function fuseUnmask(st) { const h = st.held; if (!h) return; IN.mx = h.mx; IN.my = h.my; IN.pr = h.pr; IN.down = h.down; IN.wheel = h.wheel; IN.kp = h.kp; IN.used = false; st.held = null; }
 function drawFuseReveal(st, x, y, w, h) {
+  if (st.fuseGuard && !st.fuseRes) return;
+  fuseUnmask(st);
   const F = st.fuseRes; F.t += 1 / 60; const ids = F.ids || [F.id], d = getDef(ids[0]), col = d.r === 6 ? rainbow(T_NOW) : RAR[d.r].c;
   ctx.globalAlpha = 0.85; rect(x, y, w, h, '#05020c'); ctx.globalAlpha = 1;
   const cx = x + w / 2, cy = y + h / 2 - 8, k = Math.min(1, F.t / 0.35);
@@ -426,10 +437,12 @@ function drawFuseReveal(st, x, y, w, h) {
   textO(ids.length > 1 ? `FUSED X${ids.length}!` : 'FUSED!', cx, y + 6, COL.gold, '#000', FB, 1, 2);
   if (ids.length === 1) { text(d.name, cx, cy + 30, col, FS, 1); text(RAR[d.r].n + (F.isNew ? '  NEW!' : '  (LEVELED UP)'), cx, cy + 40, COL.dim, FS, 1); }
   else text(`BEST: ${d.name}`, cx, cy + 30, col, FS, 1);
-  if (F.t > 0.6 && (button(cx - 30, y + h - 22, 60, 16, 'NICE', { kind: 'primary', font: FS }) || kp('Enter'))) st.fuseRes = null;
+  if (F.t > 0.6 && (button(cx - 30, y + h - 22, 60, 16, 'NICE', { kind: 'primary', font: FS }) || kp('Enter'))) { st.fuseRes = null; st.fuseGuard = true; IN.used = true; IN.pr = false; SND.play('click'); }
+  else if (IN.pr && inBox(x, y, w, h)) IN.used = true;   // clicks on the reveal stop here
 }
 function panelLocker(st) {
   if (panelFrame('LOCKER', COL.gold, true, 'locker')) return;
+  fuseMask(st);
   // preview
   panel(14, 30, 80, 100, { bg: '#05070f', bd: COL.steel });
   ctx.globalAlpha = 0.35; for (let gx = 14; gx < 94; gx += 10) rect(gx, 31, 1, 98, COL.steel); for (let gy = 34; gy < 130; gy += 10) rect(15, gy, 78, 1, COL.steel); ctx.globalAlpha = 1;
@@ -455,6 +468,7 @@ function panelLocker(st) {
 }
 function panelHangar(st) {
   if (panelFrame('HANGAR', COL.gold, true)) return;
+  fuseMask(st);
   panel(14, 30, 200, 120, { bg: '#000000', bd: COL.steel });
   ctx.save(); ctx.beginPath(); ctx.rect(15, 31, 198, 118); ctx.clip();
   for (const s of STARS) { const x = 15 + ((s.x * 0.5 - T_NOW * 30 * s.z) % 198 + 198) % 198; px(x, 31 + s.y * 0.43, s.c); }
@@ -544,14 +558,14 @@ function panelWorkshop(st) {
   st.tab = tabs(130, 10, ['BLUEPRINTS', 'EVOLVE', 'ARTIFACTS', 'RESEARCH'], st.tab, 66);
   const x = 14, y = 32;
   if (st.tab === 0) {
-    text('FINISH A WEAPON CHALLENGE TO EARN A BLUEPRINT. A BLUEPRINT BUILDS A WEAPON YOU CHOOSE, NO DROP NEEDED', x, y, COL.dim, FS);
+    text('EARN BLUEPRINTS COMMON UP TO MYTHIC, THEN THE LADDER STARTS AGAIN. A BLUEPRINT BUILDS A WEAPON YOU PICK', x, y, COL.dim, FS);
     CLASSES.forEach((c, i) => {
-      const yy = y + 10 + i * 19; const m = S.mast[c] || { k: 0, c: 0 }; const stp = Math.min(m.c, MAST_STEPS.length - 1); const need = MAST_STEPS[stp]; const done = m.c >= MAST_STEPS.length;
+      const yy = y + 10 + i * 19; const M = mastOf(c), m = M.m, need = M.need, done = false;
       panel(x, yy, 452, 17, { bg: COL.void1, bd: COL.void3, flat: true });
       text(CLS[c].n, x + 6, yy + 3, COL.ink, FS); text(`DEFEAT ${need} ALIENS WITH A ${CLS[c].n}`, x + 90, yy + 3, COL.dim, FS);
       bar(x + 90, yy + 11, 160, 3, done ? 1 : m.k / need, COL.orange, COL.void0); text(done ? 'ALL DONE' : `${Math.min(m.k, need)}/${need}`, x + 256, yy + 8, COL.dim, FS);
-      const maxR = Math.min(5, 2 + stp); const bp = (S.bp || {})[c] || 0;
-      if (!done && m.k >= need) { if (button(x + 300, yy + 2, 70, 13, 'CLAIM', { font: FS, col: '#4a3010', tc: COL.gold })) { m.c++; S.bp = S.bp || {}; S.bp[c] = Math.max(S.bp[c] || 0, maxR + 1); S.mast[c] = m; SND.play('fanfare'); toast(`${CLS[c].n} BLUEPRINT EARNED (UP TO ${RAR[maxR].n})`, COL.orange); dirty(); } }
+      const maxR = M.maxR; const bp = (S.bp || {})[c] || 0;
+      if (M.ready) { if (button(x + 300, yy + 2, 70, 13, 'CLAIM', { font: FS, col: '#4a3010', tc: COL.gold })) { const r = mastClaim(c); SND.play('fanfare'); toast(`${CLS[c].n} BLUEPRINT EARNED (UP TO ${RAR[r].n})${r === 5 ? '. LADDER RESETS TO COMMON' : ''}`, COL.orange); } }
       if (bp) { if (button(x + 376, yy + 2, 72, 13, `BUILD ${RAR[bp - 1].n.slice(0, 4)}`, { font: FS, col: '#1d3a4a', tc: COL.cyan })) { st.bpick = { cls: c, maxR: bp - 1 }; st.pscroll = 0; } }
       else text(`NEXT: UP TO ${RAR[maxR].n}`, x + 376, yy + 5, COL.mute, FS);
     });
@@ -662,6 +676,7 @@ function panelProfile(st) {
 }
 function panelMining(st) {
   if (panelFrame('MINING OFFICE', COL.mint, true)) return;
+  fuseMask(st);
   tickMiners();
   const x = 14, y = 30; const slots = minerSlots();
   // best first: highest coins per minute at the top (rate scales with the planet the same way for every miner)

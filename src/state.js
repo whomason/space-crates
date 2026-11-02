@@ -6,7 +6,15 @@ const SLOTS_SHIP = ['engine', 'hull', 'cargo', 'scanner', 'shield'];
 const SLOTS_COS = ['eyewear', 'headgear', 'back', 'trail', 'killfx'];
 const SLOTS_SKIN = ['skin_weapon', 'skin_armor', 'skin_ship', 'skin_tool'];
 const RES_VAL = [1, 2, 4, 8, 16, 32, 64];
-const MAST_STEPS = [40, 150, 450, 1200, 3000, 7000];
+const MAST_STEPS = [40, 150, 450, 1200, 3000, 7000];   // old cumulative kill targets (kept to convert old saves)
+// blueprint ladder: common -> uncommon -> rare -> epic -> legendary -> mythic, then back to common. Kills count from the last claim.
+const MAST_INC = [40, 110, 300, 750, 1800, 4000];
+function mastOf(c) {
+  const m = S.mast[c] || (S.mast[c] = { k: 0, c: 0 });
+  if (!m.v) { m.v = 1; if (m.c > 0) m.k = Math.max(0, m.k - MAST_STEPS[Math.min(m.c, MAST_STEPS.length) - 1]); }   // old saves counted every kill ever
+  const s = m.c % MAST_INC.length; return { m, step: s, need: MAST_INC[s], maxR: s, ready: m.k >= MAST_INC[s] };
+}
+function mastClaim(c) { const M = mastOf(c); if (!M.ready) return null; M.m.k -= M.need; M.m.c++; S.bp = S.bp || {}; S.bp[c] = Math.max(S.bp[c] || 0, M.maxR + 1); dirty(); return M.maxR; }
 const EVO_NEED = [120, 200, 320];
 
 function firstOf(cat, sub, test) { const size = catSize(cat, sub); for (let n = 0; n < size; n++) { if (rarityOf(cat, sub, n) === 0 && originOf(cat, sub, n).t === 'gen' && (!test || test(n))) return `${cat}|${sub}|${n}`; } return `${cat}|${sub}|0`; }
@@ -291,7 +299,7 @@ function goals() {
   let best = null, bf = 0; for (const pg of PAGES) { const o = pageOwned(pg); if (o > 0 && o < pg.ids.length && o / pg.ids.length > bf) { bf = o / pg.ids.length; best = pg; } }
   if (best && best !== fin) G.push({ t: `${best.n} ${pageOwned(best)}/${best.ids.length}`, f: bf, c: COL.magenta, go: 'collection' });
   const w = S.eq.weapon && getDef(S.eq.weapon);
-  if (w) { const m = S.mast[w.sub] || { k: 0, c: 0 }; const need = MAST_STEPS[Math.min(m.c, MAST_STEPS.length - 1)]; if (m.k >= need && m.c < MAST_STEPS.length) G.push({ t: `${CLS[w.sub].n} BLUEPRINT READY IN WORKSHOP`, f: 1, c: COL.orange, go: 'workshop' }); else G.push({ t: `${CLS[w.sub].n} MASTERY ${m.k}/${need} KILLS`, f: m.k / need, c: COL.orange, go: 'workshop' }); }
+  if (w) { const M = mastOf(w.sub), m = M.m, need = M.need; if (M.ready) G.push({ t: `${CLS[w.sub].n} BLUEPRINT READY IN WORKSHOP`, f: 1, c: COL.orange, go: 'workshop' }); else G.push({ t: `${CLS[w.sub].n} MASTERY ${m.k}/${need} KILLS`, f: m.k / need, c: COL.orange, go: 'workshop' }); }
   if (w && w.r <= 2 && !w.evo && w.o.t !== 'art') { const k = S.ikills[w.id] || 0, need = EVO_NEED[w.r]; G.push({ t: k >= need ? 'EVOLVE YOUR WEAPON IN THE WORKSHOP' : `EVOLVE ${w.name}: ${k}/${need}`, f: k / need, c: COL.mint, go: 'workshop' }); }
   const aff = Math.floor(S.coins / crateCost('weapon', 0)); if (aff >= 1) G.push({ t: `YOU CAN AFFORD ${aff} CRATE${aff > 1 ? 'S' : ''}`, f: 1, c: COL.gold, go: 'crates' });
   const ms = minerSlots().filter(p => !S.miners.slots[p]); if (ms.length && Object.keys(S.inv).some(id => id.startsWith('t|miner'))) G.push({ t: 'PLACE AN AUTO-MINER IN THE MINING OFFICE', f: 0, c: COL.mint, go: 'mining' });
