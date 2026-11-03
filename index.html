@@ -1,5 +1,26 @@
-<title>Space Crates</title>
-<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA3UlEQVR4nGNgGOmAEcZgZeL5T0+Lf//7wsjAwMDARE9LsQEWdIFfV6JoaiGbzjIU/uALgb9nV9PEoi37f0JZqH4efCFQN/s7ja0cZCGAUQ58X8hKlEbO+N8ofFL1Dd5ygBCA+aDq+WdUcUleBgYG4kMCBgZfCMDyq48jO16NDYJ3IfR7ZaIsGjrlACEAi2M2DgOs4qSCwRcChOIeBsj1MToYfCEw4uoCjBBoSuWkiUXwcuAIqvjgCwFm41AGBgbqtYwQJSB2MOAhMNovwACsTDz/aREauMwdfCEw4gAAdO0/vSSWswAAAAAASUVORK5CYII=">
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Space Crates – Free 8-Bit Crate-Opening Space Game</title>
+<meta name="description" content="Free 8-bit space crate-opening game in your browser. Open crates, gear up your astronaut and ship, explore 20 planets, fight alien bosses, battle friends.">
+<link rel="canonical" href="https://spacecrates.net/">
+<link rel="icon" type="image/png" href="/favicon.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="theme-color" content="#03040b">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Space Crates">
+<meta property="og:title" content="Space Crates – Free 8-Bit Crate-Opening Space Game">
+<meta property="og:description" content="Free 8-bit space crate-opening game in your browser. Open crates, gear up your astronaut and ship, explore 20 planets, fight alien bosses, battle friends.">
+<meta property="og:url" content="https://spacecrates.net/">
+<meta property="og:image" content="https://spacecrates.net/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"VideoGame","name":"Space Crates","url":"https://spacecrates.net/","description":"Free 8-bit space crate-opening game in your browser. Open crates, gear up your astronaut and ship, explore 20 planets, fight alien bosses, battle friends.","genre":["Action","Adventure"],"gamePlatform":"Web browser","applicationCategory":"Game","operatingSystem":"Any","playMode":["SinglePlayer","MultiPlayer","CoOp"],"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}
+</script>
 <style>
 :root { color-scheme: dark; --bg: #03040b; }
 html, body { height: 100%; margin: 0; background: var(--bg); overflow: hidden; }
@@ -9,6 +30,8 @@ body { display: flex; align-items: center; justify-content: center; }
 .scField { position: fixed; z-index: 4; opacity: 0; border: 0; padding: 0; margin: 0; font-size: 16px; background: transparent; color: transparent; caret-color: transparent; outline: none; }
 canvas { display: block; image-rendering: pixelated; image-rendering: crisp-edges; outline: none; touch-action: none; -webkit-user-select: none; user-select: none; }
 </style>
+</head>
+<body>
 <canvas id="game" tabindex="0" aria-label="Space Crates game"></canvas>
 <input id="nameIn" hidden maxlength="12" autocomplete="off" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="done" aria-label="Callsign">
 <script>
